@@ -82,11 +82,13 @@ func resourceAviatrixTransitExternalDeviceConn() *schema.Resource {
 				},
 			},
 			"enable_bgp_lan_activemesh": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				ForceNew:    true,
-				Description: "Switch to enable BGP LAN ActiveMesh. Only valid for GCP with Remote Gateway HA enabled. Default: false. Available as of provider version R2.21+.",
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+				ForceNew: true,
+				Description: "Switch to enable BGP LAN ActiveMesh. Only valid for GCP and Azure with Remote Gateway HA enabled. " +
+					"Requires Azure Remote Gateway insane mode enabled. Valid values: true, false. Default: false. " +
+					"Available as of provider version R2.21+.",
 			},
 			"bgp_local_as_num": {
 				Type:         schema.TypeString,
@@ -321,9 +323,12 @@ func resourceAviatrixTransitExternalDeviceConn() *schema.Resource {
 				Description: "Remote LAN IP.",
 			},
 			"phase1_remote_identifier": {
-				Type:             schema.TypeList,
-				Optional:         true,
-				Elem:             &schema.Schema{Type: schema.TypeString},
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type:         schema.TypeString,
+					ValidateFunc: goaviatrix.StringCanBeEmptyButCannotBeWhiteSpace,
+				},
 				DiffSuppressFunc: goaviatrix.TransitExternalDeviceConnPh1RemoteIdDiffSuppressFunc,
 				Description:      "List of phase 1 remote identifier of the IPsec tunnel. This can be configured as a list of any string, including emtpy string.",
 			},
@@ -583,16 +588,6 @@ func resourceAviatrixTransitExternalDeviceConnCreate(d *schema.ResourceData, met
 	if externalDeviceConn.TunnelProtocol == "LAN" {
 		if externalDeviceConn.DirectConnect == "true" || externalDeviceConn.BackupDirectConnect == "true" {
 			return fmt.Errorf("enabling 'direct_connect' or 'backup_direct_connect' is not allowed for BGP over LAN connections")
-		}
-		gw, err := client.GetGateway(&goaviatrix.Gateway{GwName: externalDeviceConn.GwName})
-		if err != nil {
-			log.Printf("[INFO] Could not get cloud_type for transit_external_device_conn validation "+
-				"from gw_name(%s) due to error(%v)", externalDeviceConn.GwName, err)
-		} else {
-			if gw.CloudType == goaviatrix.Azure &&
-				(externalDeviceConn.LocalLanIP != "" || externalDeviceConn.BackupLocalLanIP != "") {
-				return fmt.Errorf("'local_lan_ip' and 'backup_local_lan_ip' are not valid for Azure transit gateways")
-			}
 		}
 	}
 
