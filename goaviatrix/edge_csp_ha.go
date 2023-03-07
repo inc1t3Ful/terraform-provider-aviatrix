@@ -2,6 +2,8 @@ package goaviatrix
 
 import (
 	"context"
+	b64 "encoding/base64"
+	"encoding/json"
 )
 
 type EdgeCSPHa struct {
@@ -13,7 +15,7 @@ type EdgeCSPHa struct {
 	ManagementInterfaceConfig string
 	LanInterfaceIpPrefix      string       `json:"lan_ip"`
 	InterfaceList             []*Interface `json:"interfaces"`
-	VlanList                  []*Vlan      `json:"vlan"`
+	NoProgressBar             bool         `json:"no_progress_bar,omitempty"`
 }
 
 type EdgeCSPHaResp struct {
@@ -35,6 +37,7 @@ type EdgeCSPHaListResp struct {
 func (c *Client) CreateEdgeCSPHa(ctx context.Context, edgeCSPHa *EdgeCSPHa) (string, error) {
 	edgeCSPHa.CID = c.CID
 	edgeCSPHa.Action = "create_multicloud_ha_gateway"
+	edgeCSPHa.NoProgressBar = true
 
 	if edgeCSPHa.ManagementInterfaceConfig == "DHCP" {
 		edgeCSPHa.Dhcp = true
@@ -65,4 +68,21 @@ func (c *Client) GetEdgeCSPHa(ctx context.Context, gwName string) (*EdgeCSPHaRes
 	}
 
 	return nil, ErrNotFound
+}
+
+func (c *Client) UpdateEdgeCSPHa(ctx context.Context, edgeCSP *EdgeCSP) error {
+	form := map[string]string{
+		"action": "update_edge_gateway",
+		"CID":    c.CID,
+		"name":   edgeCSP.GwName,
+	}
+
+	interfaces, err := json.Marshal(edgeCSP.InterfaceList)
+	if err != nil {
+		return err
+	}
+
+	form["interfaces"] = b64.StdEncoding.EncodeToString(interfaces)
+
+	return c.PostAPIContext2(ctx, nil, form["action"], form, BasicCheck)
 }
