@@ -13,9 +13,10 @@ type EdgeCSPHa struct {
 	ComputeNodeUuid           string `json:"compute_node_uuid"`
 	Dhcp                      bool   `json:"dhcp,omitempty"`
 	ManagementInterfaceConfig string
-	LanInterfaceIpPrefix      string       `json:"lan_ip"`
-	InterfaceList             []*Interface `json:"interfaces"`
-	NoProgressBar             bool         `json:"no_progress_bar,omitempty"`
+	LanInterfaceIpPrefix      string `json:"lan_ip"`
+	InterfaceList             []*Interface
+	Interfaces                string `json:"interfaces"`
+	NoProgressBar             bool   `json:"no_progress_bar,omitempty"`
 }
 
 type EdgeCSPHaResp struct {
@@ -39,9 +40,12 @@ func (c *Client) CreateEdgeCSPHa(ctx context.Context, edgeCSPHa *EdgeCSPHa) (str
 	edgeCSPHa.Action = "create_multicloud_ha_gateway"
 	edgeCSPHa.NoProgressBar = true
 
-	if edgeCSPHa.ManagementInterfaceConfig == "DHCP" {
-		edgeCSPHa.Dhcp = true
+	interfaces, err := json.Marshal(edgeCSPHa.InterfaceList)
+	if err != nil {
+		return "", err
 	}
+
+	edgeCSPHa.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
 
 	return c.PostAPIContext2HaGw(ctx, nil, edgeCSPHa.Action, edgeCSPHa, BasicCheck)
 }
