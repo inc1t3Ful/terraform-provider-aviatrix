@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 
@@ -15,12 +16,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func resourceAviatrixEdgeCSP() *schema.Resource {
+func resourceAviatrixEdgeEquinix() *schema.Resource {
 	return &schema.Resource{
-		CreateWithoutTimeout: resourceAviatrixEdgeCSPCreate,
-		ReadWithoutTimeout:   resourceAviatrixEdgeCSPRead,
-		UpdateWithoutTimeout: resourceAviatrixEdgeCSPUpdate,
-		DeleteWithoutTimeout: resourceAviatrixEdgeCSPDelete,
+		CreateWithoutTimeout: resourceAviatrixEdgeEquinixCreate,
+		ReadWithoutTimeout:   resourceAviatrixEdgeEquinixRead,
+		UpdateWithoutTimeout: resourceAviatrixEdgeEquinixUpdate,
+		DeleteWithoutTimeout: resourceAviatrixEdgeEquinixDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -30,13 +31,13 @@ func resourceAviatrixEdgeCSP() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "Edge CSP account name.",
+				Description: "Edge Equinix account name.",
 			},
 			"gw_name": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "Edge CSP name.",
+				Description: "Edge Equinix name.",
 			},
 			"site_id": {
 				Type:        schema.TypeString,
@@ -44,23 +45,14 @@ func resourceAviatrixEdgeCSP() *schema.Resource {
 				ForceNew:    true,
 				Description: "Site ID.",
 			},
-			"project_uuid": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "Edge CSP project UUID.",
-			},
-			"compute_node_uuid": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "Edge CSP compute node UUID.",
-			},
-			"template_uuid": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "Edge CSP template UUID.",
+			"ztp_file_download_path": {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+					return old != ""
+				},
+				Description: "The location where the ZTP file will be stored.",
 			},
 			"management_egress_ip_prefix_list": {
 				Type:        schema.TypeSet,
@@ -163,7 +155,7 @@ func resourceAviatrixEdgeCSP() *schema.Resource {
 				Optional:     true,
 				Default:      defaultBgpHoldTime,
 				ValidateFunc: validation.IntBetween(12, 360),
-				Description:  "BGP Hold Time for BGP Spoke Gateway. Unit is in seconds. Valid values are between 12 and 360.",
+				Description:  "BGP route polling time for BGP spoke gateway in seconds. Valid values are between 12 and 360.",
 			},
 			"enable_edge_transitive_routing": {
 				Type:        schema.TypeBool,
@@ -203,33 +195,6 @@ func resourceAviatrixEdgeCSP() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "State of Edge as a Spoke.",
-			},
-			"wan_interface_names": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				ForceNew:    true,
-				Description: "List of WAN interface names.",
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"lan_interface_names": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				ForceNew:    true,
-				Description: "List of LAN interface names.",
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"management_interface_names": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				ForceNew:    true,
-				Description: "List of management interface names.",
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
 			},
 			"interfaces": {
 				Type:        schema.TypeSet,
@@ -371,14 +336,12 @@ func resourceAviatrixEdgeCSP() *schema.Resource {
 	}
 }
 
-func marshalEdgeCSPInput(d *schema.ResourceData) *goaviatrix.EdgeCSP {
-	edgeCSP := &goaviatrix.EdgeCSP{
+func marshalEdgeEquinixInput(d *schema.ResourceData) *goaviatrix.EdgeEquinix {
+	edgeEquinix := &goaviatrix.EdgeEquinix{
 		AccountName:                        d.Get("account_name").(string),
 		GwName:                             d.Get("gw_name").(string),
 		SiteId:                             d.Get("site_id").(string),
-		ProjectUuid:                        d.Get("project_uuid").(string),
-		ComputeNodeUuid:                    d.Get("compute_node_uuid").(string),
-		TemplateUuid:                       d.Get("template_uuid").(string),
+		ZtpFileDownloadPath:                d.Get("ztp_file_download_path").(string),
 		ManagementEgressIpPrefix:           strings.Join(getStringSet(d, "management_egress_ip_prefix_list"), ","),
 		EnableManagementOverPrivateNetwork: d.Get("enable_management_over_private_network").(bool),
 		DnsServerIp:                        d.Get("dns_server_ip").(string),
@@ -398,220 +361,217 @@ func marshalEdgeCSPInput(d *schema.ResourceData) *goaviatrix.EdgeCSP {
 		Latitude:                           d.Get("latitude").(string),
 		Longitude:                          d.Get("longitude").(string),
 		RxQueueSize:                        d.Get("rx_queue_size").(string),
-		WanInterface:                       strings.Join(getStringList(d, "wan_interface_names"), ","),
-		LanInterface:                       strings.Join(getStringList(d, "lan_interface_names"), ","),
-		MgmtInterface:                      strings.Join(getStringList(d, "management_interface_names"), ","),
 		DnsProfileName:                     d.Get("dns_profile_name").(string),
 		EnableSingleIpSnat:                 d.Get("enable_single_ip_snat").(bool),
 		EnableAutoAdvertiseLanCidrs:        d.Get("enable_auto_advertise_lan_cidrs").(bool),
 	}
 
 	interfaces := d.Get("interfaces").(*schema.Set).List()
-	for _, if0 := range interfaces {
-		if1 := if0.(map[string]interface{})
+	for _, interface0 := range interfaces {
+		interface1 := interface0.(map[string]interface{})
 
-		if2 := &goaviatrix.Interface{
-			IfName:       if1["name"].(string),
-			Type:         if1["type"].(string),
-			Bandwidth:    if1["bandwidth"].(int),
-			PublicIp:     if1["wan_public_ip"].(string),
-			Tag:          if1["tag"].(string),
-			Dhcp:         if1["enable_dhcp"].(bool),
-			IpAddr:       if1["ip_address"].(string),
-			GatewayIp:    if1["gateway_ip"].(string),
-			DnsPrimary:   if1["dns_server_ip"].(string),
-			DnsSecondary: if1["secondary_dns_server_ip"].(string),
-			VrrpState:    if1["enable_vrrp"].(bool),
-			VirtualIp:    if1["vrrp_virtual_ip"].(string),
+		interface2 := &goaviatrix.EdgeEquinixInterface{
+			IfName:       interface1["name"].(string),
+			Type:         interface1["type"].(string),
+			Bandwidth:    interface1["bandwidth"].(int),
+			PublicIp:     interface1["wan_public_ip"].(string),
+			Tag:          interface1["tag"].(string),
+			Dhcp:         interface1["enable_dhcp"].(bool),
+			IpAddr:       interface1["ip_address"].(string),
+			GatewayIp:    interface1["gateway_ip"].(string),
+			DnsPrimary:   interface1["dns_server_ip"].(string),
+			DnsSecondary: interface1["secondary_dns_server_ip"].(string),
+			VrrpState:    interface1["enable_vrrp"].(bool),
+			VirtualIp:    interface1["vrrp_virtual_ip"].(string),
 		}
 
-		edgeCSP.InterfaceList = append(edgeCSP.InterfaceList, if2)
+		edgeEquinix.InterfaceList = append(edgeEquinix.InterfaceList, interface2)
 	}
 
 	vlan := d.Get("vlan").(*schema.Set).List()
-	for _, v0 := range vlan {
-		v1 := v0.(map[string]interface{})
+	for _, vlan0 := range vlan {
+		vlan1 := vlan0.(map[string]interface{})
 
-		v2 := &goaviatrix.Vlan{
-			ParentInterface: v1["parent_interface_name"].(string),
-			IpAddr:          v1["ip_address"].(string),
-			GatewayIp:       v1["gateway_ip"].(string),
-			PeerIpAddr:      v1["peer_ip_address"].(string),
-			PeerGatewayIp:   v1["peer_gateway_ip"].(string),
-			VirtualIp:       v1["vrrp_virtual_ip"].(string),
-			Tag:             v1["tag"].(string),
+		vlan2 := &goaviatrix.EdgeEquinixVlan{
+			ParentInterface: vlan1["parent_interface_name"].(string),
+			IpAddr:          vlan1["ip_address"].(string),
+			GatewayIp:       vlan1["gateway_ip"].(string),
+			PeerIpAddr:      vlan1["peer_ip_address"].(string),
+			PeerGatewayIp:   vlan1["peer_gateway_ip"].(string),
+			VirtualIp:       vlan1["vrrp_virtual_ip"].(string),
+			Tag:             vlan1["tag"].(string),
 		}
 
-		v2.VlanId = strconv.Itoa(v1["vlan_id"].(int))
+		vlan2.VlanId = strconv.Itoa(vlan1["vlan_id"].(int))
 
-		edgeCSP.VlanList = append(edgeCSP.VlanList, v2)
+		edgeEquinix.VlanList = append(edgeEquinix.VlanList, vlan2)
 	}
 
-	return edgeCSP
+	return edgeEquinix
 }
 
-func resourceAviatrixEdgeCSPCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAviatrixEdgeEquinixCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*goaviatrix.Client)
 
 	// read configs
-	edgeCSP := marshalEdgeCSPInput(d)
+	edgeEquinix := marshalEdgeEquinixInput(d)
 
 	// checks before creation
-	if !edgeCSP.EnableEdgeActiveStandby && edgeCSP.EnableEdgeActiveStandbyPreemptive {
-		return diag.Errorf("could not configure Preemptive Mode with Active-Standby disabled")
+	if !edgeEquinix.EnableEdgeActiveStandby && edgeEquinix.EnableEdgeActiveStandbyPreemptive {
+		return diag.Errorf("could not enable Preemptive Mode when Active-Standby is disabled")
 	}
 
-	if !edgeCSP.EnableLearnedCidrsApproval && len(edgeCSP.ApprovedLearnedCidrs) != 0 {
+	if !edgeEquinix.EnableLearnedCidrsApproval && len(edgeEquinix.ApprovedLearnedCidrs) != 0 {
 		return diag.Errorf("'approved_learned_cidrs' must be empty if 'enable_learned_cidrs_approval' is false")
 	}
 
-	if len(edgeCSP.PrependAsPath) != 0 {
-		if edgeCSP.LocalAsNumber == "" {
+	if len(edgeEquinix.PrependAsPath) != 0 {
+		if edgeEquinix.LocalAsNumber == "" {
 			return diag.Errorf("'prepend_as_path' must be empty if 'local_as_number' is not set")
 		}
 	}
 
-	if edgeCSP.Latitude != "" && edgeCSP.Longitude != "" {
-		latitude, _ := strconv.ParseFloat(edgeCSP.Latitude, 64)
-		longitude, _ := strconv.ParseFloat(edgeCSP.Longitude, 64)
+	if edgeEquinix.Latitude != "" && edgeEquinix.Longitude != "" {
+		latitude, _ := strconv.ParseFloat(edgeEquinix.Latitude, 64)
+		longitude, _ := strconv.ParseFloat(edgeEquinix.Longitude, 64)
 		if latitude == 0 && longitude == 0 {
 			return diag.Errorf("latitude and longitude must not be zero at the same time")
 		}
 	}
 
 	// create
-	d.SetId(edgeCSP.GwName)
+	d.SetId(edgeEquinix.GwName)
 	flag := false
-	defer resourceAviatrixEdgeCSPReadIfRequired(ctx, d, meta, &flag)
+	defer resourceAviatrixEdgeEquinixReadIfRequired(ctx, d, meta, &flag)
 
-	if err := client.CreateEdgeCSP(ctx, edgeCSP); err != nil {
-		return diag.Errorf("could not create Edge CSP: %v", err)
+	if err := client.CreateEdgeEquinix(ctx, edgeEquinix); err != nil {
+		return diag.Errorf("could not create Edge Equinix %s: %v", edgeEquinix.GwName, err)
 	}
 
 	// advanced configs
 	// use following variables to reuse functions for transit, spoke, gateway and EaaS
 	gatewayForTransitFunctions := &goaviatrix.TransitVpc{
-		GwName: edgeCSP.GwName,
+		GwName: edgeEquinix.GwName,
 	}
 	gatewayForSpokeFunctions := &goaviatrix.SpokeVpc{
-		GwName: edgeCSP.GwName,
+		GwName: edgeEquinix.GwName,
 	}
 	gatewayForGatewayFunctions := &goaviatrix.Gateway{
-		GwName: edgeCSP.GwName,
+		GwName: edgeEquinix.GwName,
 	}
 	gatewayForEaasFunctions := &goaviatrix.EdgeSpoke{
-		GwName: edgeCSP.GwName,
+		GwName: edgeEquinix.GwName,
 	}
 
-	if edgeCSP.LocalAsNumber != "" {
-		err := client.SetLocalASNumber(gatewayForTransitFunctions, edgeCSP.LocalAsNumber)
+	if edgeEquinix.LocalAsNumber != "" {
+		err := client.SetLocalASNumber(gatewayForTransitFunctions, edgeEquinix.LocalAsNumber)
 		if err != nil {
-			return diag.Errorf("could not set 'local_as_number' after Edge CSP creation: %v", err)
+			return diag.Errorf("could not set 'local_as_number' after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if len(edgeCSP.PrependAsPath) != 0 {
-		err := client.SetPrependASPath(gatewayForTransitFunctions, edgeCSP.PrependAsPath)
+	if len(edgeEquinix.PrependAsPath) != 0 {
+		err := client.SetPrependASPath(gatewayForTransitFunctions, edgeEquinix.PrependAsPath)
 		if err != nil {
-			return diag.Errorf("could not set 'prepend_as_path' after Edge CSP creation: %v", err)
+			return diag.Errorf("could not set 'prepend_as_path' after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if edgeCSP.EnableLearnedCidrsApproval {
+	if edgeEquinix.EnableLearnedCidrsApproval {
 		err := client.EnableTransitLearnedCidrsApproval(gatewayForTransitFunctions)
 		if err != nil {
-			return diag.Errorf("could not enable learned CIDRs approval after Edge CSP creation: %v", err)
+			return diag.Errorf("could not enable learned CIDRs approval after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if len(edgeCSP.ApprovedLearnedCidrs) != 0 {
-		gatewayForTransitFunctions.ApprovedLearnedCidrs = edgeCSP.ApprovedLearnedCidrs
+	if len(edgeEquinix.ApprovedLearnedCidrs) != 0 {
+		gatewayForTransitFunctions.ApprovedLearnedCidrs = edgeEquinix.ApprovedLearnedCidrs
 		err := client.UpdateTransitPendingApprovedCidrs(gatewayForTransitFunctions)
 		if err != nil {
-			return diag.Errorf("could not update approved CIDRs after Edge CSP creation: %v", err)
+			return diag.Errorf("could not update approved CIDRs after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if len(edgeCSP.SpokeBgpManualAdvertisedCidrs) != 0 {
-		gatewayForTransitFunctions.BgpManualSpokeAdvertiseCidrs = strings.Join(edgeCSP.SpokeBgpManualAdvertisedCidrs, ",")
+	if len(edgeEquinix.SpokeBgpManualAdvertisedCidrs) != 0 {
+		gatewayForTransitFunctions.BgpManualSpokeAdvertiseCidrs = strings.Join(edgeEquinix.SpokeBgpManualAdvertisedCidrs, ",")
 		err := client.SetBgpManualSpokeAdvertisedNetworks(gatewayForTransitFunctions)
 		if err != nil {
-			return diag.Errorf("could not set spoke BGP manual advertised CIDRs after Edge CSP creation: %v", err)
+			return diag.Errorf("could not set spoke BGP manual advertised CIDRs after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if edgeCSP.EnablePreserveAsPath {
+	if edgeEquinix.EnablePreserveAsPath {
 		err := client.EnableSpokePreserveAsPath(gatewayForSpokeFunctions)
 		if err != nil {
-			return diag.Errorf("could not enable spoke preserve as path after Edge CSP creation: %v", err)
+			return diag.Errorf("could not enable spoke preserve as path after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if edgeCSP.BgpPollingTime >= 10 && edgeCSP.BgpPollingTime != defaultBgpPollingTime {
-		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeCSP.BgpPollingTime))
+	if edgeEquinix.BgpPollingTime >= 10 && edgeEquinix.BgpPollingTime != defaultBgpPollingTime {
+		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeEquinix.BgpPollingTime))
 		if err != nil {
-			return diag.Errorf("could not set bgp polling time after Edge CSP creation: %v", err)
+			return diag.Errorf("could not set bgp polling time after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if edgeCSP.BgpHoldTime >= 12 && edgeCSP.BgpHoldTime != defaultBgpHoldTime {
-		err := client.ChangeBgpHoldTime(gatewayForSpokeFunctions.GwName, edgeCSP.BgpHoldTime)
+	if edgeEquinix.BgpHoldTime >= 12 && edgeEquinix.BgpHoldTime != defaultBgpHoldTime {
+		err := client.ChangeBgpHoldTime(gatewayForSpokeFunctions.GwName, edgeEquinix.BgpHoldTime)
 		if err != nil {
-			return diag.Errorf("could not change BGP Hold Time after Edge CSP creation: %v", err)
+			return diag.Errorf("could not change BGP Hold Time after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if edgeCSP.EnableEdgeTransitiveRouting {
-		err := client.EnableEdgeSpokeTransitiveRouting(ctx, edgeCSP.GwName)
+	if edgeEquinix.EnableEdgeTransitiveRouting {
+		err := client.EnableEdgeSpokeTransitiveRouting(ctx, edgeEquinix.GwName)
 		if err != nil {
-			return diag.Errorf("could not enable Edge transitive routing after Edge CSP creation: %v", err)
+			return diag.Errorf("could not enable Edge transitive routing after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if edgeCSP.EnableJumboFrame {
+	if edgeEquinix.EnableJumboFrame {
 		err := client.EnableJumboFrame(gatewayForGatewayFunctions)
 		if err != nil {
-			return diag.Errorf("could not disable jumbo frame after Edge CSP creation: %v", err)
+			return diag.Errorf("could not disable jumbo frame after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if edgeCSP.Latitude != "" || edgeCSP.Longitude != "" {
-		gatewayForEaasFunctions.Latitude = edgeCSP.Latitude
-		gatewayForEaasFunctions.Longitude = edgeCSP.Longitude
+	if edgeEquinix.Latitude != "" || edgeEquinix.Longitude != "" {
+		gatewayForEaasFunctions.Latitude = edgeEquinix.Latitude
+		gatewayForEaasFunctions.Longitude = edgeEquinix.Longitude
 		err := client.UpdateEdgeSpokeGeoCoordinate(ctx, gatewayForEaasFunctions)
 		if err != nil {
-			return diag.Errorf("could not update geo coordinate after Edge CSP creation: %v", err)
+			return diag.Errorf("could not update geo coordinate after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if edgeCSP.RxQueueSize != "" {
-		gatewayForGatewayFunctions.RxQueueSize = edgeCSP.RxQueueSize
+	if edgeEquinix.RxQueueSize != "" {
+		gatewayForGatewayFunctions.RxQueueSize = edgeEquinix.RxQueueSize
 		err := client.SetRxQueueSize(gatewayForGatewayFunctions)
 		if err != nil {
-			return diag.Errorf("could not set rx queue size after Edge CSP creation: %v", err)
+			return diag.Errorf("could not set rx queue size after Edge Equinix creation: %v", err)
 		}
 	}
 
-	if edgeCSP.EnableSingleIpSnat {
-		gatewayForGatewayFunctions.GatewayName = edgeCSP.GwName
+	if edgeEquinix.EnableSingleIpSnat {
+		gatewayForGatewayFunctions.GatewayName = edgeEquinix.GwName
 		err := client.EnableSNat(gatewayForGatewayFunctions)
 		if err != nil {
 			return diag.Errorf("failed to enable single IP SNAT: %s", err)
 		}
 	}
 
-	return resourceAviatrixEdgeCSPReadIfRequired(ctx, d, meta, &flag)
+	return resourceAviatrixEdgeEquinixReadIfRequired(ctx, d, meta, &flag)
 }
 
-func resourceAviatrixEdgeCSPReadIfRequired(ctx context.Context, d *schema.ResourceData, meta interface{}, flag *bool) diag.Diagnostics {
+func resourceAviatrixEdgeEquinixReadIfRequired(ctx context.Context, d *schema.ResourceData, meta interface{}, flag *bool) diag.Diagnostics {
 	if !(*flag) {
 		*flag = true
-		return resourceAviatrixEdgeCSPRead(ctx, d, meta)
+		return resourceAviatrixEdgeEquinixRead(ctx, d, meta)
 	}
 	return nil
 }
 
-func resourceAviatrixEdgeCSPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAviatrixEdgeEquinixRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*goaviatrix.Client)
 
 	// handle import
@@ -622,40 +582,37 @@ func resourceAviatrixEdgeCSPRead(ctx context.Context, d *schema.ResourceData, me
 		d.SetId(id)
 	}
 
-	edgeCSPResp, err := client.GetEdgeCSP(ctx, d.Get("gw_name").(string))
+	edgeEquinixResp, err := client.GetEdgeEquinix(ctx, d.Get("gw_name").(string))
 	if err != nil {
 		if err == goaviatrix.ErrNotFound {
 			d.SetId("")
 			return nil
 		}
-		return diag.Errorf("could not read Edge CSP: %v", err)
+		return diag.Errorf("could not read Edge Equinix: %v", err)
 	}
 
-	d.Set("account_name", edgeCSPResp.AccountName)
-	d.Set("gw_name", edgeCSPResp.GwName)
-	d.Set("site_id", edgeCSPResp.SiteId)
-	d.Set("project_uuid", edgeCSPResp.ProjectUuid)
-	d.Set("compute_node_uuid", edgeCSPResp.ComputeNodeUuid)
-	d.Set("template_uuid", edgeCSPResp.TemplateUuid)
-	d.Set("enable_management_over_private_network", edgeCSPResp.EnableManagementOverPrivateNetwork)
-	d.Set("dns_server_ip", edgeCSPResp.DnsServerIp)
-	d.Set("secondary_dns_server_ip", edgeCSPResp.SecondaryDnsServerIp)
-	d.Set("local_as_number", edgeCSPResp.LocalAsNumber)
-	d.Set("prepend_as_path", edgeCSPResp.PrependAsPath)
-	d.Set("enable_edge_active_standby", edgeCSPResp.EnableEdgeActiveStandby)
-	d.Set("enable_edge_active_standby_preemptive", edgeCSPResp.EnableEdgeActiveStandbyPreemptive)
-	d.Set("enable_learned_cidrs_approval", edgeCSPResp.EnableLearnedCidrsApproval)
+	d.Set("account_name", edgeEquinixResp.AccountName)
+	d.Set("gw_name", edgeEquinixResp.GwName)
+	d.Set("site_id", edgeEquinixResp.SiteId)
+	d.Set("enable_management_over_private_network", edgeEquinixResp.EnableManagementOverPrivateNetwork)
+	d.Set("dns_server_ip", edgeEquinixResp.DnsServerIp)
+	d.Set("secondary_dns_server_ip", edgeEquinixResp.SecondaryDnsServerIp)
+	d.Set("local_as_number", edgeEquinixResp.LocalAsNumber)
+	d.Set("prepend_as_path", edgeEquinixResp.PrependAsPath)
+	d.Set("enable_edge_active_standby", edgeEquinixResp.EnableEdgeActiveStandby)
+	d.Set("enable_edge_active_standby_preemptive", edgeEquinixResp.EnableEdgeActiveStandbyPreemptive)
+	d.Set("enable_learned_cidrs_approval", edgeEquinixResp.EnableLearnedCidrsApproval)
 
-	if edgeCSPResp.ManagementEgressIpPrefix == "" {
+	if edgeEquinixResp.ManagementEgressIpPrefix == "" {
 		d.Set("management_egress_ip_prefix_list", nil)
 	} else {
-		d.Set("management_egress_ip_prefix_list", strings.Split(edgeCSPResp.ManagementEgressIpPrefix, ","))
+		d.Set("management_egress_ip_prefix_list", strings.Split(edgeEquinixResp.ManagementEgressIpPrefix, ","))
 	}
 
-	if edgeCSPResp.EnableLearnedCidrsApproval {
-		spokeAdvancedConfig, err := client.GetSpokeGatewayAdvancedConfig(&goaviatrix.SpokeVpc{GwName: edgeCSPResp.GwName})
+	if edgeEquinixResp.EnableLearnedCidrsApproval {
+		spokeAdvancedConfig, err := client.GetSpokeGatewayAdvancedConfig(&goaviatrix.SpokeVpc{GwName: edgeEquinixResp.GwName})
 		if err != nil {
-			return diag.Errorf("could not get advanced config for Edge CSP: %v", err)
+			return diag.Errorf("could not get advanced config for Edge Equinix: %v", err)
 		}
 
 		err = d.Set("approved_learned_cidrs", spokeAdvancedConfig.ApprovedLearnedCidrs)
@@ -667,71 +624,68 @@ func resourceAviatrixEdgeCSPRead(ctx context.Context, d *schema.ResourceData, me
 	}
 
 	spokeBgpManualAdvertisedCidrs := getStringSet(d, "spoke_bgp_manual_advertise_cidrs")
-	if len(goaviatrix.Difference(spokeBgpManualAdvertisedCidrs, edgeCSPResp.SpokeBgpManualAdvertisedCidrs)) != 0 ||
-		len(goaviatrix.Difference(edgeCSPResp.SpokeBgpManualAdvertisedCidrs, spokeBgpManualAdvertisedCidrs)) != 0 {
-		d.Set("spoke_bgp_manual_advertise_cidrs", edgeCSPResp.SpokeBgpManualAdvertisedCidrs)
+	if len(goaviatrix.Difference(spokeBgpManualAdvertisedCidrs, edgeEquinixResp.SpokeBgpManualAdvertisedCidrs)) != 0 ||
+		len(goaviatrix.Difference(edgeEquinixResp.SpokeBgpManualAdvertisedCidrs, spokeBgpManualAdvertisedCidrs)) != 0 {
+		d.Set("spoke_bgp_manual_advertise_cidrs", edgeEquinixResp.SpokeBgpManualAdvertisedCidrs)
 	} else {
 		d.Set("spoke_bgp_manual_advertise_cidrs", spokeBgpManualAdvertisedCidrs)
 	}
 
-	d.Set("enable_preserve_as_path", edgeCSPResp.EnablePreserveAsPath)
-	d.Set("bgp_polling_time", edgeCSPResp.BgpPollingTime)
-	d.Set("bgp_hold_time", edgeCSPResp.BgpHoldTime)
-	d.Set("enable_edge_transitive_routing", edgeCSPResp.EnableEdgeTransitiveRouting)
-	d.Set("enable_jumbo_frame", edgeCSPResp.EnableJumboFrame)
-	if edgeCSPResp.Latitude != 0 || edgeCSPResp.Longitude != 0 {
-		d.Set("latitude", fmt.Sprintf("%.6f", edgeCSPResp.Latitude))
-		d.Set("longitude", fmt.Sprintf("%.6f", edgeCSPResp.Longitude))
+	d.Set("enable_preserve_as_path", edgeEquinixResp.EnablePreserveAsPath)
+	d.Set("bgp_polling_time", edgeEquinixResp.BgpPollingTime)
+	d.Set("bgp_hold_time", edgeEquinixResp.BgpHoldTime)
+	d.Set("enable_edge_transitive_routing", edgeEquinixResp.EnableEdgeTransitiveRouting)
+	d.Set("enable_jumbo_frame", edgeEquinixResp.EnableJumboFrame)
+	if edgeEquinixResp.Latitude != 0 || edgeEquinixResp.Longitude != 0 {
+		d.Set("latitude", fmt.Sprintf("%.6f", edgeEquinixResp.Latitude))
+		d.Set("longitude", fmt.Sprintf("%.6f", edgeEquinixResp.Longitude))
 	} else {
 		d.Set("latitude", "")
 		d.Set("longitude", "")
 	}
 
-	d.Set("rx_queue_size", edgeCSPResp.RxQueueSize)
-	d.Set("state", edgeCSPResp.State)
-	d.Set("wan_interface_names", edgeCSPResp.WanInterface)
-	d.Set("lan_interface_names", edgeCSPResp.LanInterface)
-	d.Set("management_interface_names", edgeCSPResp.MgmtInterface)
+	d.Set("rx_queue_size", edgeEquinixResp.RxQueueSize)
+	d.Set("state", edgeEquinixResp.State)
 
 	var interfaces []map[string]interface{}
 	var vlan []map[string]interface{}
-	for _, if0 := range edgeCSPResp.InterfaceList {
-		if1 := make(map[string]interface{})
-		if1["name"] = if0.IfName
-		if1["type"] = if0.Type
-		if1["bandwidth"] = if0.Bandwidth
-		if1["wan_public_ip"] = if0.PublicIp
-		if1["tag"] = if0.Tag
-		if1["enable_dhcp"] = if0.Dhcp
-		if1["ip_address"] = if0.IpAddr
-		if1["gateway_ip"] = if0.GatewayIp
-		if1["dns_server_ip"] = if0.DnsPrimary
-		if1["secondary_dns_server_ip"] = if0.DnsSecondary
-		if1["vrrp_virtual_ip"] = if0.VirtualIp
+	for _, interface0 := range edgeEquinixResp.InterfaceList {
+		interface1 := make(map[string]interface{})
+		interface1["name"] = interface0.IfName
+		interface1["type"] = interface0.Type
+		interface1["bandwidth"] = interface0.Bandwidth
+		interface1["wan_public_ip"] = interface0.PublicIp
+		interface1["tag"] = interface0.Tag
+		interface1["enable_dhcp"] = interface0.Dhcp
+		interface1["ip_address"] = interface0.IpAddr
+		interface1["gateway_ip"] = interface0.GatewayIp
+		interface1["dns_server_ip"] = interface0.DnsPrimary
+		interface1["secondary_dns_server_ip"] = interface0.DnsSecondary
+		interface1["vrrp_virtual_ip"] = interface0.VirtualIp
 
-		if if0.Type == "LAN" {
-			if1["enable_vrrp"] = if0.VrrpState
+		if interface0.Type == "LAN" {
+			interface1["enable_vrrp"] = interface0.VrrpState
 		}
 
-		if if0.Type == "LAN" && if0.SubInterfaces != nil {
-			for _, v0 := range if0.SubInterfaces {
-				v1 := make(map[string]interface{})
-				v1["parent_interface_name"] = v0.ParentInterface
-				v1["ip_address"] = v0.IpAddr
-				v1["gateway_ip"] = v0.GatewayIp
-				v1["peer_ip_address"] = v0.PeerIpAddr
-				v1["peer_gateway_ip"] = v0.PeerGatewayIp
-				v1["vrrp_virtual_ip"] = v0.VirtualIp
-				v1["tag"] = v0.Tag
+		if interface0.Type == "LAN" && interface0.SubInterfaces != nil {
+			for _, vlan0 := range interface0.SubInterfaces {
+				vlan1 := make(map[string]interface{})
+				vlan1["parent_interface_name"] = vlan0.ParentInterface
+				vlan1["ip_address"] = vlan0.IpAddr
+				vlan1["gateway_ip"] = vlan0.GatewayIp
+				vlan1["peer_ip_address"] = vlan0.PeerIpAddr
+				vlan1["peer_gateway_ip"] = vlan0.PeerGatewayIp
+				vlan1["vrrp_virtual_ip"] = vlan0.VirtualIp
+				vlan1["tag"] = vlan0.Tag
 
-				vlanId, _ := strconv.Atoi(v0.VlanId)
-				v1["vlan_id"] = vlanId
+				vlanId, _ := strconv.Atoi(vlan0.VlanId)
+				vlan1["vlan_id"] = vlanId
 
-				vlan = append(vlan, v1)
+				vlan = append(vlan, vlan1)
 			}
 		}
 
-		interfaces = append(interfaces, if1)
+		interfaces = append(interfaces, interface1)
 	}
 
 	if err = d.Set("interfaces", interfaces); err != nil {
@@ -742,34 +696,34 @@ func resourceAviatrixEdgeCSPRead(ctx context.Context, d *schema.ResourceData, me
 		return diag.Errorf("failed to set vlan: %s\n", err)
 	}
 
-	d.Set("dns_profile_name", edgeCSPResp.DnsProfileName)
-	d.Set("enable_single_ip_snat", edgeCSPResp.SingleIpSnat)
-	d.Set("enable_auto_advertise_lan_cidrs", edgeCSPResp.EnableAutoAdvertiseLanCidrs)
+	d.Set("dns_profile_name", edgeEquinixResp.DnsProfileName)
+	d.Set("enable_single_ip_snat", edgeEquinixResp.SingleIpSnat)
+	d.Set("enable_auto_advertise_lan_cidrs", edgeEquinixResp.EnableAutoAdvertiseLanCidrs)
 
-	d.SetId(edgeCSPResp.GwName)
+	d.SetId(edgeEquinixResp.GwName)
 	return nil
 }
 
-func resourceAviatrixEdgeCSPUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAviatrixEdgeEquinixUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*goaviatrix.Client)
 
 	// read configs
-	edgeCSP := marshalEdgeCSPInput(d)
+	edgeEquinix := marshalEdgeEquinixInput(d)
 
 	// checks before update
-	if !edgeCSP.EnableLearnedCidrsApproval && len(edgeCSP.ApprovedLearnedCidrs) != 0 {
+	if !edgeEquinix.EnableLearnedCidrsApproval && len(edgeEquinix.ApprovedLearnedCidrs) != 0 {
 		return diag.Errorf("'approved_learned_cidrs' must be empty if 'enable_learned_cidrs_approval' is false")
 	}
 
-	if len(edgeCSP.PrependAsPath) != 0 {
-		if edgeCSP.LocalAsNumber == "" {
+	if len(edgeEquinix.PrependAsPath) != 0 {
+		if edgeEquinix.LocalAsNumber == "" {
 			return diag.Errorf("'prepend_as_path' must be empty if 'local_as_number' is not set")
 		}
 	}
 
-	if edgeCSP.Latitude != "" && edgeCSP.Longitude != "" {
-		latitude, _ := strconv.ParseFloat(edgeCSP.Latitude, 64)
-		longitude, _ := strconv.ParseFloat(edgeCSP.Longitude, 64)
+	if edgeEquinix.Latitude != "" && edgeEquinix.Longitude != "" {
+		latitude, _ := strconv.ParseFloat(edgeEquinix.Latitude, 64)
+		longitude, _ := strconv.ParseFloat(edgeEquinix.Longitude, 64)
 		if latitude == 0 && longitude == 0 {
 			return diag.Errorf("latitude and longitude must not be zero at the same time")
 		}
@@ -780,165 +734,165 @@ func resourceAviatrixEdgeCSPUpdate(ctx context.Context, d *schema.ResourceData, 
 	// update configs
 	// use following variables to reuse functions for transit, spoke and gateway
 	gatewayForTransitFunctions := &goaviatrix.TransitVpc{
-		GwName: edgeCSP.GwName,
+		GwName: edgeEquinix.GwName,
 	}
 	gatewayForSpokeFunctions := &goaviatrix.SpokeVpc{
-		GwName: edgeCSP.GwName,
+		GwName: edgeEquinix.GwName,
 	}
 	gatewayForGatewayFunctions := &goaviatrix.Gateway{
-		GwName: edgeCSP.GwName,
+		GwName: edgeEquinix.GwName,
 	}
 	gatewayForEaasFunctions := &goaviatrix.EdgeSpoke{
-		GwName: edgeCSP.GwName,
+		GwName: edgeEquinix.GwName,
 	}
 
 	if d.HasChanges("local_as_number", "prepend_as_path") {
-		if (d.HasChange("local_as_number") && d.HasChange("prepend_as_path")) || len(edgeCSP.PrependAsPath) == 0 {
+		if (d.HasChange("local_as_number") && d.HasChange("prepend_as_path")) || len(edgeEquinix.PrependAsPath) == 0 {
 			// prependASPath must be deleted from the controller before local_as_number can be changed
 			// Handle the case where prependASPath is empty here so that the API is not called twice
 			err := client.SetPrependASPath(gatewayForTransitFunctions, nil)
 			if err != nil {
-				return diag.Errorf("could not delete prepend_as_path during Edge CSP update: %v", err)
+				return diag.Errorf("could not delete prepend_as_path during Edge Equinix update: %v", err)
 			}
 		}
 
 		if d.HasChange("local_as_number") {
-			err := client.SetLocalASNumber(gatewayForTransitFunctions, edgeCSP.LocalAsNumber)
+			err := client.SetLocalASNumber(gatewayForTransitFunctions, edgeEquinix.LocalAsNumber)
 			if err != nil {
-				return diag.Errorf("could not set local_as_number during Edge CSP update: %v", err)
+				return diag.Errorf("could not set local_as_number during Edge Equinix update: %v", err)
 			}
 		}
 
-		if d.HasChange("prepend_as_path") && len(edgeCSP.PrependAsPath) > 0 {
-			err := client.SetPrependASPath(gatewayForTransitFunctions, edgeCSP.PrependAsPath)
+		if d.HasChange("prepend_as_path") && len(edgeEquinix.PrependAsPath) > 0 {
+			err := client.SetPrependASPath(gatewayForTransitFunctions, edgeEquinix.PrependAsPath)
 			if err != nil {
-				return diag.Errorf("could not set prepend_as_path during Edge CSP update: %v", err)
+				return diag.Errorf("could not set prepend_as_path during Edge Equinix update: %v", err)
 			}
 		}
 	}
 
 	if d.HasChange("enable_learned_cidrs_approval") {
-		if edgeCSP.EnableLearnedCidrsApproval {
+		if edgeEquinix.EnableLearnedCidrsApproval {
 			err := client.EnableTransitLearnedCidrsApproval(gatewayForTransitFunctions)
 			if err != nil {
-				return diag.Errorf("could not enable learned cidrs approval during Edge CSP update: %v", err)
+				return diag.Errorf("could not enable learned cidrs approval during Edge Equinix update: %v", err)
 			}
 		} else {
 			err := client.DisableTransitLearnedCidrsApproval(gatewayForTransitFunctions)
 			if err != nil {
-				return diag.Errorf("could not disable learned cidrs approval during Edge CSP update: %v", err)
+				return diag.Errorf("could not disable learned cidrs approval during Edge Equinix update: %v", err)
 			}
 		}
 	}
 
-	if edgeCSP.EnableLearnedCidrsApproval && d.HasChange("approved_learned_cidrs") {
-		gatewayForTransitFunctions.ApprovedLearnedCidrs = edgeCSP.ApprovedLearnedCidrs
+	if edgeEquinix.EnableLearnedCidrsApproval && d.HasChange("approved_learned_cidrs") {
+		gatewayForTransitFunctions.ApprovedLearnedCidrs = edgeEquinix.ApprovedLearnedCidrs
 		err := client.UpdateTransitPendingApprovedCidrs(gatewayForTransitFunctions)
 		if err != nil {
-			return diag.Errorf("could not update approved learned CIDRs during Edge CSP update: %v", err)
+			return diag.Errorf("could not update approved learned CIDRs during Edge Equinix update: %v", err)
 		}
 	}
 
 	if d.HasChange("spoke_bgp_manual_advertise_cidrs") {
-		gatewayForTransitFunctions.BgpManualSpokeAdvertiseCidrs = strings.Join(edgeCSP.SpokeBgpManualAdvertisedCidrs, ",")
+		gatewayForTransitFunctions.BgpManualSpokeAdvertiseCidrs = strings.Join(edgeEquinix.SpokeBgpManualAdvertisedCidrs, ",")
 		err := client.SetBgpManualSpokeAdvertisedNetworks(gatewayForTransitFunctions)
 		if err != nil {
-			return diag.Errorf("could not set spoke BGP manual advertised CIDRs during Edge CSP update: %v", err)
+			return diag.Errorf("could not set spoke BGP manual advertised CIDRs during Edge Equinix update: %v", err)
 		}
 	}
 
 	if d.HasChange("enable_preserve_as_path") {
-		if edgeCSP.EnablePreserveAsPath {
+		if edgeEquinix.EnablePreserveAsPath {
 			err := client.EnableSpokePreserveAsPath(gatewayForSpokeFunctions)
 			if err != nil {
-				return diag.Errorf("could not enable preserve as path during Edge CSP update: %v", err)
+				return diag.Errorf("could not enable preserve as path during Edge Equinix update: %v", err)
 			}
 		} else {
 			err := client.DisableSpokePreserveAsPath(gatewayForSpokeFunctions)
 			if err != nil {
-				return diag.Errorf("could not disable preserve as path during Edge CSP update: %v", err)
+				return diag.Errorf("could not disable preserve as path during Edge Equinix update: %v", err)
 			}
 		}
 	}
 
 	if d.HasChange("bgp_polling_time") {
-		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeCSP.BgpPollingTime))
+		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeEquinix.BgpPollingTime))
 		if err != nil {
-			return diag.Errorf("could not set bgp polling time during Edge CSP update: %v", err)
+			return diag.Errorf("could not set bgp polling time during Edge Equinix update: %v", err)
 		}
 	}
 
 	if d.HasChange("bgp_hold_time") {
-		err := client.ChangeBgpHoldTime(edgeCSP.GwName, edgeCSP.BgpHoldTime)
+		err := client.ChangeBgpHoldTime(edgeEquinix.GwName, edgeEquinix.BgpHoldTime)
 		if err != nil {
-			return diag.Errorf("could not change bgp hold time during Edge CSP update: %v", err)
+			return diag.Errorf("could not change bgp hold time during Edge Equinix update: %v", err)
 		}
 	}
 
 	if d.HasChange("enable_edge_transitive_routing") {
-		if edgeCSP.EnableEdgeTransitiveRouting {
-			err := client.EnableEdgeSpokeTransitiveRouting(ctx, edgeCSP.GwName)
+		if edgeEquinix.EnableEdgeTransitiveRouting {
+			err := client.EnableEdgeSpokeTransitiveRouting(ctx, edgeEquinix.GwName)
 			if err != nil {
-				return diag.Errorf("could not enable transitive routing during Edge CSP update: %v", err)
+				return diag.Errorf("could not enable transitive routing during Edge Equinix update: %v", err)
 			}
 		} else {
-			err := client.DisableEdgeSpokeTransitiveRouting(ctx, edgeCSP.GwName)
+			err := client.DisableEdgeSpokeTransitiveRouting(ctx, edgeEquinix.GwName)
 			if err != nil {
-				return diag.Errorf("could not disable transitive routing during Edge CSP update: %v", err)
+				return diag.Errorf("could not disable transitive routing during Edge Equinix update: %v", err)
 			}
 		}
 	}
 
 	if d.HasChange("enable_jumbo_frame") {
-		if edgeCSP.EnableJumboFrame {
+		if edgeEquinix.EnableJumboFrame {
 			err := client.EnableJumboFrame(gatewayForGatewayFunctions)
 			if err != nil {
-				return diag.Errorf("could not enable jumbo frame during Edge CSP update: %v", err)
+				return diag.Errorf("could not enable jumbo frame during Edge Equinix update: %v", err)
 			}
 		} else {
 			err := client.DisableJumboFrame(gatewayForGatewayFunctions)
 			if err != nil {
-				return diag.Errorf("could not disable jumbo frame during Edge CSP update: %v", err)
+				return diag.Errorf("could not disable jumbo frame during Edge Equinix update: %v", err)
 			}
 		}
 	}
 
 	if d.HasChanges("latitude", "longitude") {
-		gatewayForEaasFunctions.Latitude = edgeCSP.Latitude
-		gatewayForEaasFunctions.Longitude = edgeCSP.Longitude
+		gatewayForEaasFunctions.Latitude = edgeEquinix.Latitude
+		gatewayForEaasFunctions.Longitude = edgeEquinix.Longitude
 		err := client.UpdateEdgeSpokeGeoCoordinate(ctx, gatewayForEaasFunctions)
 		if err != nil {
-			return diag.Errorf("could not update geo coordinate during Edge CSP update: %v", err)
+			return diag.Errorf("could not update geo coordinate during Edge Equinix update: %v", err)
 		}
 	}
 
 	if d.HasChange("rx_queue_size") {
-		gatewayForGatewayFunctions.RxQueueSize = edgeCSP.RxQueueSize
+		gatewayForGatewayFunctions.RxQueueSize = edgeEquinix.RxQueueSize
 		err := client.SetRxQueueSize(gatewayForGatewayFunctions)
 		if err != nil {
-			return diag.Errorf("could not update rx queue size during Edge CSP update: %v", err)
+			return diag.Errorf("could not update rx queue size during Edge Equinix update: %v", err)
 		}
 	}
 
 	if d.HasChanges("management_egress_ip_prefix_list", "interfaces", "vlan", "dns_profile_name", "enable_auto_advertise_lan_cidrs") {
-		err := client.UpdateEdgeCSP(ctx, edgeCSP)
+		err := client.UpdateEdgeEquinix(ctx, edgeEquinix)
 		if err != nil {
-			return diag.Errorf("could not update management egress ip prefix list, WAN/LAN/VLAN interfaces, DNS profile name or auto advertise LAN CIDRs during Edge CSP update: %v", err)
+			return diag.Errorf("could not update management egress ip prefix list, WAN/LAN/VLAN interfaces, DNS profile name or auto advertise LAN CIDRs during Edge Equinix update: %v", err)
 		}
 	}
 
 	if d.HasChange("enable_single_ip_snat") {
-		gatewayForGatewayFunctions.GatewayName = edgeCSP.GwName
+		gatewayForGatewayFunctions.GatewayName = edgeEquinix.GwName
 
-		if edgeCSP.EnableSingleIpSnat {
+		if edgeEquinix.EnableSingleIpSnat {
 			err := client.EnableSNat(gatewayForGatewayFunctions)
 			if err != nil {
-				return diag.Errorf("failed to enable single IP SNAT during update: %s", err)
+				return diag.Errorf("failed to enable single IP SNAT during Edge Equinix update: %s", err)
 			}
 		} else {
 			err := client.DisableSNat(gatewayForGatewayFunctions)
 			if err != nil {
-				return diag.Errorf("failed to disable single IP SNAT during update: %s", err)
+				return diag.Errorf("failed to disable single IP SNAT during Edge Equinix update: %s", err)
 			}
 		}
 
@@ -946,18 +900,27 @@ func resourceAviatrixEdgeCSPUpdate(ctx context.Context, d *schema.ResourceData, 
 
 	d.Partial(false)
 
-	return resourceAviatrixEdgeCSPRead(ctx, d, meta)
+	return resourceAviatrixEdgeEquinixRead(ctx, d, meta)
 }
 
-func resourceAviatrixEdgeCSPDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAviatrixEdgeEquinixDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*goaviatrix.Client)
 
 	accountName := d.Get("account_name").(string)
 	gwName := d.Get("gw_name").(string)
+	siteId := d.Get("site_id").(string)
+	ztpFileDownloadPath := d.Get("ztp_file_download_path").(string)
 
-	err := client.DeleteEdgeCSP(ctx, accountName, gwName)
+	err := client.DeleteEdgeEquinix(ctx, accountName, gwName)
 	if err != nil {
-		return diag.Errorf("could not delete Edge CSP: %v", err)
+		return diag.Errorf("could not delete Edge Equinix: %v", err)
+	}
+
+	fileName := ztpFileDownloadPath + "/" + gwName + "-" + siteId + "-cloud-init.txt"
+
+	err = os.Remove(fileName)
+	if err != nil {
+		log.Printf("[WARN] could not remove the ztp file: %v", err)
 	}
 
 	return nil

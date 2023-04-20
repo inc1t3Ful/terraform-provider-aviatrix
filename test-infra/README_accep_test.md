@@ -95,6 +95,8 @@ Passing an environment value of "yes" to the skip parameter allows you to skip t
 | aviatrix_dns_profile                 | SKIP_DNS_PROFILE                   | N/A                                                                            |
 | aviatrix_edge_csp                    | SKIP_EDGE_CSP                      | EDGE_CSP_USERNAME, EDGE_CSP_PASSWORD, EDGE_CSP_PROJECT_UUID, EDGE_CSP_COMPUTE_NODE_UUID, EDGE_CSP_TEMPLATE_UUID |
 | aviatrix_edge_csp_ha                 | SKIP_EDGE_CSP_HA                   | EDGE_CSP_USERNAME, EDGE_CSP_PASSWORD, EDGE_CSP_PROJECT_UUID, EDGE_CSP_COMPUTE_NODE_UUID, EDGE_CSP_TEMPLATE_UUID, EDGE_CSP_HA_COMPUTE_NODE_UUID |
+| aviatrix_edge_equinix                | SKIP_EDGE_EQUINIX                  |                                                                                |
+| aviatrix_edge_equinix_ha             | SKIP_EDGE_EQUINIX_HA               |                                                                                |
 | aviatrix_edge_spoke                  | SKIP_EDGE_SPOKE                    | N/A                                                                            |
 | aviatrix_edge_spoke_external_device_conn | SKIP_EDGE_SPOKE_EXTERNAL_DEVICE_CONN | EDGE_SPOKE_NAME, EDGE_SPOKE_SITE_ID                                      |
 | aviatrix_edge_spoke_transit_attachment | SKIP_EDGE_SPOKE_TRANSIT_ATTACHMENT | EDGE_SPOKE_NAME                                                              |
@@ -176,6 +178,7 @@ Passing an environment value of "yes" to the skip parameter allows you to skip t
 | aviatrix_data_source_caller_identity | SKIP_DATA_CALLER_IDENTITY          |                                                                                |
 | aviatrix_data_source_controller_metadata | SKIP_DATA_CONTROLLER_METADATA  |                                                                                |
 | aviatrix_data_source_device_interfaces | SKIP_DATA_DEVICE_INTERFACES      | CLOUDN_DEVICE_NAME                                                             |
+| aviatrix_data_source_edge_gateway_wan_interface_discovery | SKIP_DATA_EDGE_GATEWAY_WAN_INTERFACE_DISCOVERY | aviatrix_edge_csp                             |
 | aviatrix_data_source_firenet         | SKIP_DATA_FIRENET                  | aviatrix_firenet                                                               |
 | aviatrix_data_source_firenet_firewall_manager | SKIP_DATA_FIRENET_FIREWALL_MANAGER | AWS_ACCOUNT_NUMBER + AWS_ACCESS_KEY + AWS_SECRET_KEY + AWS_REGION, Palo Alto Networks Panorama |
 | aviatrix_data_source_firenet_vendor_integration | SKIP_DATA_FIRENET_VENDOR_INTEGRATION    | aviatrix_account + AWS_REGION, Palo Alto VM series             |
