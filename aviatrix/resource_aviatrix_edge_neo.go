@@ -245,7 +245,7 @@ func resourceAviatrixEdgeNEO() *schema.Resource {
 						"bandwidth": {
 							Type:        schema.TypeInt,
 							Optional:    true,
-							Description: "Bandwidth.",
+							Description: "The rate of data can be moved through the interface, requires an integer value. Unit is in Mb/s.",
 						},
 						"enable_dhcp": {
 							Type:        schema.TypeBool,
@@ -593,6 +593,13 @@ func resourceAviatrixEdgeNEOCreate(ctx context.Context, d *schema.ResourceData, 
 		}
 	}
 
+	if !edgeNEO.EnableAutoAdvertiseLanCidrs {
+		err := client.UpdateEdgeNEO(ctx, edgeNEO)
+		if err != nil {
+			return diag.Errorf("could not disable auto advertise LAN CIDRs after Edge NEO creation: %v", err)
+		}
+	}
+
 	return resourceAviatrixEdgeNEOReadIfRequired(ctx, d, meta, &flag)
 }
 
@@ -735,7 +742,7 @@ func resourceAviatrixEdgeNEORead(ctx context.Context, d *schema.ResourceData, me
 	}
 
 	d.Set("dns_profile_name", edgeNEOResp.DnsProfileName)
-	d.Set("enable_single_ip_snat", edgeNEOResp.SingleIpSnat)
+	d.Set("enable_single_ip_snat", edgeNEOResp.EnableNat == "yes" && edgeNEOResp.SnatMode == "primary")
 	d.Set("enable_auto_advertise_lan_cidrs", edgeNEOResp.EnableAutoAdvertiseLanCidrs)
 
 	d.SetId(edgeNEOResp.GwName)

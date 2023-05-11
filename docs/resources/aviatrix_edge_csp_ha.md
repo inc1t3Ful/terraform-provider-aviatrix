@@ -10,6 +10,8 @@ description: |-
 
 The **aviatrix_edge_csp_ha** resource creates the Aviatrix Edge CSP HA.
 
+-> **NOTE:** A primary **aviatrix_edge_csp** is required to create **aviatrix_edge_csp_ha**.
+
 ## Example Usage
 
 ```hcl
@@ -38,14 +40,14 @@ resource "aviatrix_edge_csp_ha" "test" {
 The following arguments are supported:
 
 ### Required
-* `primary_gw_name` - (Required) Edge CSP name.
+* `primary_gw_name` - (Required) Primary Edge CSP name.
 * `compute_node_uuid` - (Required) Edge CSP compute node UUID.
 
 -> **NOTE:** At least one LAN interface is required.
-* `interfaces` - (Required) WAN/LAN interfaces.
+* `interfaces` - (Required) WAN/LAN/MANAGEMENT interfaces.
   * `name` - (Required) Interface name.
   * `type` - (Required) Type.
-  * `bandwidth` - (Optional) Bandwidth.
+  * `bandwidth` - (Optional) The rate of data can be moved through the interface, requires an integer value. Unit is in Mb/s.
   * `enable_dhcp` - (Optional) Enable DHCP. Valid values: true, false. Default value: false.
   * `wan_public_ip` - (Optional) WAN public IP.
   * `ip_address` - (Optional) Interface static IP address.
@@ -53,7 +55,10 @@ The following arguments are supported:
   * `dns_server_ip` - (Optional) Primary DNS server IP.
   * `secondary_dns_server_ip` - (Optional) Secondary DNS server IP.
   * `tag` - (Optional) Tag.
-    
+
+### Optional
+* `management_egress_ip_prefix_list` - (Optional) Set of management egress gateway IP and subnet prefix. Example: ["67.207.104.16/29", "64.71.12.144/29"].    
+
 ## Attribute Reference
 
 In addition to all arguments above, the following attribute is exported:

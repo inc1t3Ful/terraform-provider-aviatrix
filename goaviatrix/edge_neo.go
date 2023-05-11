@@ -44,10 +44,12 @@ type EdgeNEO struct {
 	InterfaceList                      []*EdgeNEOInterface
 	Interfaces                         string `json:"interfaces"`
 	VlanList                           []*EdgeNEOVlan
+	Vlan                               string `json:"vlan"`
 	DnsProfileName                     string `json:"dns_profile_name"`
 	EnableSingleIpSnat                 bool
 	EnableAutoAdvertiseLanCidrs        bool
 	LanInterfaceIpPrefix               string
+	DirectAttachLan                    bool `json:"direct_attach_lan"`
 }
 
 type EdgeNEOInterface struct {
@@ -81,8 +83,8 @@ type EdgeNEOResp struct {
 	AccountName                        string `json:"account_name"`
 	GwName                             string `json:"gw_name"`
 	SiteId                             string `json:"vpc_id"`
-	DeviceId                           string `json:"device_id"`
-	GwSize                             string `json:"gw_resource_size"`
+	DeviceId                           string `json:"edge_csp_device_id"`
+	GwSize                             string `json:"edge_csp_gateway_size"`
 	ManagementEgressIpPrefix           string `json:"mgmt_egress_ip"`
 	EnableManagementOverPrivateNetwork bool   `json:"mgmt_over_private_network"`
 	DnsServerIp                        string `json:"dns_server_ip"`
@@ -113,7 +115,8 @@ type EdgeNEOResp struct {
 	MgmtInterface                      []string            `json:"edge_csp_mgmt_ifname"`
 	InterfaceList                      []*EdgeNEOInterface `json:"interfaces"`
 	DnsProfileName                     string              `json:"dns_profile_name"`
-	SingleIpSnat                       bool                `json:"nat_enabled"`
+	EnableNat                          string              `json:"enable_nat"`
+	SnatMode                           string              `json:"snat_target"`
 	EnableAutoAdvertiseLanCidrs        bool                `json:"auto_advertise_lan_cidrs"`
 }
 
@@ -127,6 +130,7 @@ func (c *Client) CreateEdgeNEO(ctx context.Context, edgeNEO *EdgeNEO) error {
 	edgeNEO.Action = "create_edge_csp_gateway"
 	edgeNEO.CID = c.CID
 	edgeNEO.NoProgressBar = true
+	edgeNEO.DirectAttachLan = true
 
 	interfaces, err := json.Marshal(edgeNEO.InterfaceList)
 	if err != nil {
@@ -134,6 +138,17 @@ func (c *Client) CreateEdgeNEO(ctx context.Context, edgeNEO *EdgeNEO) error {
 	}
 
 	edgeNEO.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
+
+	if edgeNEO.VlanList == nil || len(edgeNEO.VlanList) == 0 {
+		edgeNEO.VlanList = []*EdgeNEOVlan{}
+	}
+
+	vlan, err := json.Marshal(edgeNEO.VlanList)
+	if err != nil {
+		return err
+	}
+
+	edgeNEO.Vlan = b64.StdEncoding.EncodeToString(vlan)
 
 	err = c.PostAPIContext2(ctx, nil, edgeNEO.Action, edgeNEO, BasicCheck)
 	if err != nil {

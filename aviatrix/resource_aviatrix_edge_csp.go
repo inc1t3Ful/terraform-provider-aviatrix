@@ -251,7 +251,7 @@ func resourceAviatrixEdgeCSP() *schema.Resource {
 						"bandwidth": {
 							Type:        schema.TypeInt,
 							Optional:    true,
-							Description: "Bandwidth.",
+							Description: "The rate of data can be moved through the interface, requires an integer value. Unit is in Mb/s.",
 						},
 						"enable_dhcp": {
 							Type:        schema.TypeBool,
@@ -600,6 +600,13 @@ func resourceAviatrixEdgeCSPCreate(ctx context.Context, d *schema.ResourceData, 
 		}
 	}
 
+	if !edgeCSP.EnableAutoAdvertiseLanCidrs {
+		err := client.UpdateEdgeCSP(ctx, edgeCSP)
+		if err != nil {
+			return diag.Errorf("could not disable auto advertise LAN CIDRs after Edge CSP creation: %v", err)
+		}
+	}
+
 	return resourceAviatrixEdgeCSPReadIfRequired(ctx, d, meta, &flag)
 }
 
@@ -743,7 +750,7 @@ func resourceAviatrixEdgeCSPRead(ctx context.Context, d *schema.ResourceData, me
 	}
 
 	d.Set("dns_profile_name", edgeCSPResp.DnsProfileName)
-	d.Set("enable_single_ip_snat", edgeCSPResp.SingleIpSnat)
+	d.Set("enable_single_ip_snat", edgeCSPResp.EnableNat == "yes" && edgeCSPResp.SnatMode == "primary")
 	d.Set("enable_auto_advertise_lan_cidrs", edgeCSPResp.EnableAutoAdvertiseLanCidrs)
 
 	d.SetId(edgeCSPResp.GwName)

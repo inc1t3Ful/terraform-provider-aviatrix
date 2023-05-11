@@ -216,7 +216,7 @@ func resourceAviatrixEdgeEquinix() *schema.Resource {
 						"bandwidth": {
 							Type:        schema.TypeInt,
 							Optional:    true,
-							Description: "Bandwidth.",
+							Description: "The rate of data can be moved through the interface, requires an integer value. Unit is in Mb/s.",
 						},
 						"enable_dhcp": {
 							Type:        schema.TypeBool,
@@ -560,6 +560,13 @@ func resourceAviatrixEdgeEquinixCreate(ctx context.Context, d *schema.ResourceDa
 		}
 	}
 
+	if !edgeEquinix.EnableAutoAdvertiseLanCidrs {
+		err := client.UpdateEdgeEquinix(ctx, edgeEquinix)
+		if err != nil {
+			return diag.Errorf("could not disable auto advertise LAN CIDRs after Edge Equinix creation: %v", err)
+		}
+	}
+
 	return resourceAviatrixEdgeEquinixReadIfRequired(ctx, d, meta, &flag)
 }
 
@@ -697,7 +704,7 @@ func resourceAviatrixEdgeEquinixRead(ctx context.Context, d *schema.ResourceData
 	}
 
 	d.Set("dns_profile_name", edgeEquinixResp.DnsProfileName)
-	d.Set("enable_single_ip_snat", edgeEquinixResp.SingleIpSnat)
+	d.Set("enable_single_ip_snat", edgeEquinixResp.EnableNat == "yes" && edgeEquinixResp.SnatMode == "primary")
 	d.Set("enable_auto_advertise_lan_cidrs", edgeEquinixResp.EnableAutoAdvertiseLanCidrs)
 
 	d.SetId(edgeEquinixResp.GwName)

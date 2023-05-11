@@ -42,6 +42,7 @@ type EdgeEquinix struct {
 	InterfaceList                      []*EdgeEquinixInterface
 	Interfaces                         string `json:"interfaces"`
 	VlanList                           []*EdgeEquinixVlan
+	Vlan                               string `json:"vlan"`
 	DnsProfileName                     string `json:"dns_profile_name"`
 	EnableSingleIpSnat                 bool
 	EnableAutoAdvertiseLanCidrs        bool
@@ -111,7 +112,8 @@ type EdgeEquinixResp struct {
 	State                              string       `json:"vpc_state"`
 	InterfaceList                      []*Interface `json:"interfaces"`
 	DnsProfileName                     string       `json:"dns_profile_name"`
-	SingleIpSnat                       bool         `json:"nat_enabled"`
+	EnableNat                          string       `json:"enable_nat"`
+	SnatMode                           string       `json:"snat_target"`
 	EnableAutoAdvertiseLanCidrs        bool         `json:"auto_advertise_lan_cidrs"`
 }
 
@@ -138,6 +140,17 @@ func (c *Client) CreateEdgeEquinix(ctx context.Context, edgeEquinix *EdgeEquinix
 	}
 
 	edgeEquinix.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
+
+	if edgeEquinix.VlanList == nil || len(edgeEquinix.VlanList) == 0 {
+		edgeEquinix.VlanList = []*EdgeEquinixVlan{}
+	}
+
+	vlan, err := json.Marshal(edgeEquinix.VlanList)
+	if err != nil {
+		return err
+	}
+
+	edgeEquinix.Vlan = b64.StdEncoding.EncodeToString(vlan)
 
 	var data CreateEdgeEquinixResp
 
