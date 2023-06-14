@@ -10,6 +10,8 @@ description: |-
 
 The **aviatrix_edge_spoke_external_device_conn** resource creates and manages the connection between Edge as a Spoke and an External Device. This resource is available as of provider version R2.23+.
 
+~> **NOTE:** Please use a separate **aviatrix_edge_spoke_external_device_conn** to create WAN underlay connection for Edge HA.
+
 ## Example Usage
 
 ```hcl
@@ -56,11 +58,12 @@ The following arguments are supported:
 * `backup_local_lan_ip` - (Optional) Backup Local LAN IP. Required for HA BGP over LAN connection.
 * `backup_bgp_remote_as_num` - (Optional) Backup BGP remote ASN (Autonomous System Number). Integer between 1-4294967294. Required if HA enabled for 'bgp' connection.
 * `prepend_as_path` - (Optional) Connection AS Path Prepend customized by specifying AS PATH for a BGP connection.
+* `manual_bgp_advertised_cidrs` - (Optional) Configure manual BGP advertised CIDRs for this connection.
 
 ## Import
 
-**edge_spoke_external_device_conn** can be imported using the `connection_name` and `site_id`, e.g.
+**edge_spoke_external_device_conn** can be imported using the `connection_name`, `site_id` and `gw_name`, e.g.
 
 ```
-$ terraform import aviatrix_edge_spoke_external_device_conn.test connection_name~site_id
+$ terraform import aviatrix_edge_spoke_external_device_conn.test connection_name~site_id~gw_name
 ```

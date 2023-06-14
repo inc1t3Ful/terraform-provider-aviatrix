@@ -8,9 +8,11 @@ description: |-
 
 # aviatrix_edge_neo_ha
 
-The **aviatrix_edge_neo_ha** resource creates the Aviatrix Edge NEO HA.
+-> **NOTE:** Since V3.1.1+, please use resource **aviatrix_edge_platform_ha** instead. Resource **aviatrix_edge_neo_ha** will be deprecated in the V3.2.0 release.
 
 -> **NOTE:** A primary **aviatrix_edge_neo** is required to create **aviatrix_edge_neo_ha**.
+
+The **aviatrix_edge_neo_ha** resource creates the Aviatrix Edge NEO HA.
 
 ## Example Usage
 

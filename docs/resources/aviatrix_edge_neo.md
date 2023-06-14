@@ -8,6 +8,8 @@ description: |-
 
 # aviatrix_edge_neo
 
+-> **NOTE:** Since V3.1.1+, please use resource **aviatrix_edge_platform** instead. Resource **aviatrix_edge_neo** will be deprecated in the V3.2.0 release.
+
 The **aviatrix_edge_neo** resource creates the Aviatrix Edge NEO.
 
 ## Example Usage

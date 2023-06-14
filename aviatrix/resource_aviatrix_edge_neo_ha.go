@@ -107,6 +107,8 @@ func resourceAviatrixEdgeNEOHa() *schema.Resource {
 				Description: "Edge NEO account name.",
 			},
 		},
+		DeprecationMessage: "Since V3.1.1+, please use resource aviatrix_edge_platform_ha instead. Resource " +
+			"aviatrix_edge_neo_ha will be deprecated in the V3.2.0 release.",
 	}
 }
 
