@@ -438,6 +438,12 @@ func resourceAviatrixSpokeGateway() *schema.Resource {
 				Description:  "Price for spot instance. NOT supported for production deployment.",
 				RequiredWith: []string{"enable_spot_instance"},
 			},
+			"delete_spot": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				ForceNew:    true,
+				Description: "If set true, the spot instance will be deleted on eviction. Otherwise, the instance will be deallocated on eviction. Only supports Azure.",
+			},
 			"rx_queue_size": {
 				Type:         schema.TypeString,
 				Optional:     true,
@@ -906,12 +912,21 @@ func resourceAviatrixSpokeGatewayCreate(d *schema.ResourceData, meta interface{}
 
 	enableSpotInstance := d.Get("enable_spot_instance").(bool)
 	spotPrice := d.Get("spot_price").(string)
+	deleteSpot := d.Get("delete_spot").(bool)
 	if enableSpotInstance {
-		if !goaviatrix.IsCloudType(gateway.CloudType, goaviatrix.AWSRelatedCloudTypes) {
-			return fmt.Errorf("enable_spot_instance only supports AWS related cloud types")
+		if !goaviatrix.IsCloudType(gateway.CloudType, goaviatrix.AWSRelatedCloudTypes|goaviatrix.AzureArmRelatedCloudTypes) {
+			return fmt.Errorf("enable_spot_instance only supports AWS and Azure related cloud types")
 		}
+
+		if !goaviatrix.IsCloudType(gateway.CloudType, goaviatrix.AzureArmRelatedCloudTypes) && deleteSpot {
+			return fmt.Errorf("delete_spot only supports Azure")
+		}
+
 		gateway.EnableSpotInstance = true
 		gateway.SpotPrice = spotPrice
+		if goaviatrix.IsCloudType(gateway.CloudType, goaviatrix.AzureArmRelatedCloudTypes) {
+			gateway.DeleteSpot = deleteSpot
+		}
 	}
 
 	rxQueueSize := d.Get("rx_queue_size").(string)
@@ -1035,6 +1050,9 @@ func resourceAviatrixSpokeGatewayCreate(d *schema.ResourceData, meta interface{}
 
 		if privateModeInfo.EnablePrivateMode {
 			haPrivateModeSubnetZone := d.Get("ha_private_mode_subnet_zone").(string)
+			if haPrivateModeSubnetZone == "" && goaviatrix.IsCloudType(gateway.CloudType, goaviatrix.AWSRelatedCloudTypes) {
+				return fmt.Errorf("%q must be set when creating a Spoke HA Gateway in AWS with Private Mode enabled on the Controller", "ha_private_mode_subnet_zone")
+			}
 			spokeHaGw.Subnet = haSubnet + "~~" + haPrivateModeSubnetZone
 		}
 
@@ -1605,7 +1623,7 @@ func resourceAviatrixSpokeGatewayRead(d *schema.ResourceData, meta interface{}) 
 
 	if goaviatrix.IsCloudType(gw.CloudType, goaviatrix.AzureArmRelatedCloudTypes) {
 		_, zoneIsSet := d.GetOk("zone")
-		if (isImport || zoneIsSet) && gw.GatewayZone != "AvailabilitySet" {
+		if (isImport || zoneIsSet) && gw.GatewayZone != "AvailabilitySet" && gw.LbVpcId == "" {
 			d.Set("zone", "az-"+gw.GatewayZone)
 		}
 	}
@@ -1622,11 +1640,18 @@ func resourceAviatrixSpokeGatewayRead(d *schema.ResourceData, meta interface{}) 
 	if gw.EnableSpotInstance {
 		d.Set("enable_spot_instance", true)
 		d.Set("spot_price", gw.SpotPrice)
+		if goaviatrix.IsCloudType(gw.CloudType, goaviatrix.AzureArmRelatedCloudTypes) && gw.DeleteSpot {
+			d.Set("delete_spot", gw.DeleteSpot)
+		}
 	}
 
 	d.Set("private_mode_lb_vpc_id", gw.LbVpcId)
-	if gw.LbVpcId != "" && goaviatrix.IsCloudType(gw.CloudType, goaviatrix.AWSRelatedCloudTypes) {
-		d.Set("private_mode_subnet_zone", gw.GatewayZone)
+	if gw.LbVpcId != "" && gw.GatewayZone != "AvailabilitySet" {
+		if goaviatrix.IsCloudType(gw.CloudType, goaviatrix.AWSRelatedCloudTypes) {
+			d.Set("private_mode_subnet_zone", gw.GatewayZone)
+		} else if goaviatrix.IsCloudType(gw.CloudType, goaviatrix.AzureArmRelatedCloudTypes) {
+			d.Set("private_mode_subnet_zone", "az-"+gw.GatewayZone)
+		}
 	} else {
 		d.Set("private_mode_subnet_zone", nil)
 	}
@@ -1665,7 +1690,7 @@ func resourceAviatrixSpokeGatewayRead(d *schema.ResourceData, meta interface{}) 
 		if goaviatrix.IsCloudType(gw.HaGw.CloudType, goaviatrix.AWSRelatedCloudTypes|goaviatrix.AzureArmRelatedCloudTypes|goaviatrix.OCIRelatedCloudTypes|goaviatrix.AliCloudRelatedCloudTypes) {
 			d.Set("ha_subnet", gw.HaGw.VpcNet)
 			if zone := d.Get("ha_zone"); goaviatrix.IsCloudType(gw.HaGw.CloudType, goaviatrix.AzureArmRelatedCloudTypes) && (isImport || zone.(string) != "") {
-				if gw.HaGw.GatewayZone != "AvailabilitySet" {
+				if gw.LbVpcId == "" && gw.HaGw.GatewayZone != "AvailabilitySet" {
 					d.Set("ha_zone", "az-"+gw.HaGw.GatewayZone)
 				} else {
 					d.Set("ha_zone", "")
@@ -1709,8 +1734,12 @@ func resourceAviatrixSpokeGatewayRead(d *schema.ResourceData, meta interface{}) 
 			d.Set("ha_oob_management_subnet", strings.Split(gw.HaGw.OobManagementSubnet, "~~")[0])
 			d.Set("ha_oob_availability_zone", gw.HaGw.GatewayZone)
 		}
-		if gw.LbVpcId != "" && goaviatrix.IsCloudType(gw.HaGw.CloudType, goaviatrix.AWSRelatedCloudTypes) {
-			d.Set("ha_private_mode_subnet_zone", gw.HaGw.GatewayZone)
+		if gw.LbVpcId != "" && gw.GatewayZone != "AvailabilitySet" {
+			if goaviatrix.IsCloudType(gw.CloudType, goaviatrix.AWSRelatedCloudTypes) {
+				d.Set("ha_private_mode_subnet_zone", gw.HaGw.GatewayZone)
+			} else if goaviatrix.IsCloudType(gw.CloudType, goaviatrix.AzureArmRelatedCloudTypes) {
+				d.Set("ha_private_mode_subnet_zone", "az-"+gw.HaGw.GatewayZone)
+			}
 		} else {
 			d.Set("ha_private_mode_subnet_zone", "")
 		}
@@ -2031,8 +2060,8 @@ func resourceAviatrixSpokeGatewayUpdate(d *schema.ResourceData, meta interface{}
 
 		if privateModeInfo.EnablePrivateMode {
 			if newHaGwEnabled || changeHaGw {
-				if _, ok := d.GetOk("ha_private_mode_subnet_zone"); !ok {
-					return fmt.Errorf("%q is required if private mode is enabled and %q is provided", "ha_private_mode_subnet_zone", "ha_subnet")
+				if _, ok := d.GetOk("ha_private_mode_subnet_zone"); !ok && goaviatrix.IsCloudType(gateway.CloudType, goaviatrix.AWSRelatedCloudTypes) {
+					return fmt.Errorf("%q is required when creating a Spoke HA Gateway in AWS if private mode is enabled and %q is provided", "ha_private_mode_subnet_zone", "ha_subnet")
 				}
 
 				privateModeSubnetZone := d.Get("ha_private_mode_subnet_zone").(string)

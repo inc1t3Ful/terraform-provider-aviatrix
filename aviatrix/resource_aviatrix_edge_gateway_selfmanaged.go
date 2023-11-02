@@ -15,12 +15,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func resourceAviatrixEdgeVmSelfmanaged() *schema.Resource {
+func resourceAviatrixEdgeGatewaySelfmanaged() *schema.Resource {
 	return &schema.Resource{
-		CreateWithoutTimeout: resourceAviatrixEdgeVmSelfmanagedCreate,
-		ReadWithoutTimeout:   resourceAviatrixEdgeVmSelfmanagedRead,
-		UpdateWithoutTimeout: resourceAviatrixEdgeVmSelfmanagedUpdate,
-		DeleteWithoutTimeout: resourceAviatrixEdgeVmSelfmanagedDelete,
+		CreateWithoutTimeout: resourceAviatrixEdgeGatewaySelfmanagedCreate,
+		ReadWithoutTimeout:   resourceAviatrixEdgeGatewaySelfmanagedRead,
+		UpdateWithoutTimeout: resourceAviatrixEdgeGatewaySelfmanagedUpdate,
+		DeleteWithoutTimeout: resourceAviatrixEdgeGatewaySelfmanagedDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -30,7 +30,7 @@ func resourceAviatrixEdgeVmSelfmanaged() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "Edge VM Selfmanaged name.",
+				Description: "Edge gateway selfmanaged name.",
 			},
 			"site_id": {
 				Type:        schema.TypeString,
@@ -192,7 +192,7 @@ func resourceAviatrixEdgeVmSelfmanaged() *schema.Resource {
 			"state": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "State of Edge VM Selfmanaged.",
+				Description: "State of Edge gateway selfmanaged.",
 			},
 			"interfaces": {
 				Type:        schema.TypeSet,
@@ -235,12 +235,10 @@ func resourceAviatrixEdgeVmSelfmanaged() *schema.Resource {
 				},
 			},
 		},
-		DeprecationMessage: "Since V3.1.2+, please use resource aviatrix_edge_gateway_selfmanaged instead. Resource " +
-			"aviatrix_edge_vm_selfmanaged will be deprecated in the V3.2.0 release.",
 	}
 }
 
-func marshalEdgeVmSelfmanagedInput(d *schema.ResourceData) *goaviatrix.EdgeSpoke {
+func marshalEdgeGatewaySelfmanagedInput(d *schema.ResourceData) *goaviatrix.EdgeSpoke {
 	edgeSpoke := &goaviatrix.EdgeSpoke{
 		GwName:                             d.Get("gw_name").(string),
 		SiteId:                             d.Get("site_id").(string),
@@ -286,11 +284,11 @@ func marshalEdgeVmSelfmanagedInput(d *schema.ResourceData) *goaviatrix.EdgeSpoke
 	return edgeSpoke
 }
 
-func resourceAviatrixEdgeVmSelfmanagedCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAviatrixEdgeGatewaySelfmanagedCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*goaviatrix.Client)
 
 	// read configs
-	edgeSpoke := marshalEdgeVmSelfmanagedInput(d)
+	edgeSpoke := marshalEdgeGatewaySelfmanagedInput(d)
 
 	// checks before creation
 	if !edgeSpoke.EnableEdgeActiveStandby && edgeSpoke.EnableEdgeActiveStandbyPreemptive {
@@ -318,7 +316,7 @@ func resourceAviatrixEdgeVmSelfmanagedCreate(ctx context.Context, d *schema.Reso
 	// create
 	d.SetId(edgeSpoke.GwName)
 	flag := false
-	defer resourceAviatrixEdgeVmSelfmanagedReadIfRequired(ctx, d, meta, &flag)
+	defer resourceAviatrixEdgeGatewaySelfmanagedReadIfRequired(ctx, d, meta, &flag)
 
 	if err := client.CreateEdgeSpoke(ctx, edgeSpoke); err != nil {
 		return diag.Errorf("could not create Edge as a Spoke: %v", err)
@@ -339,21 +337,21 @@ func resourceAviatrixEdgeVmSelfmanagedCreate(ctx context.Context, d *schema.Reso
 	if edgeSpoke.LocalAsNumber != "" {
 		err := client.SetLocalASNumber(gatewayForTransitFunctions, edgeSpoke.LocalAsNumber)
 		if err != nil {
-			return diag.Errorf("could not set 'local_as_number' after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not set 'local_as_number' after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
 	if len(edgeSpoke.PrependAsPath) != 0 {
 		err := client.SetPrependASPath(gatewayForTransitFunctions, edgeSpoke.PrependAsPath)
 		if err != nil {
-			return diag.Errorf("could not set 'prepend_as_path' after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not set 'prepend_as_path' after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
 	if edgeSpoke.EnableLearnedCidrsApproval {
 		err := client.EnableTransitLearnedCidrsApproval(gatewayForTransitFunctions)
 		if err != nil {
-			return diag.Errorf("could not enable learned CIDRs approval after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not enable learned CIDRs approval after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
@@ -361,7 +359,7 @@ func resourceAviatrixEdgeVmSelfmanagedCreate(ctx context.Context, d *schema.Reso
 		gatewayForTransitFunctions.ApprovedLearnedCidrs = edgeSpoke.ApprovedLearnedCidrs
 		err := client.UpdateTransitPendingApprovedCidrs(gatewayForTransitFunctions)
 		if err != nil {
-			return diag.Errorf("could not update approved CIDRs after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not update approved CIDRs after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
@@ -376,42 +374,42 @@ func resourceAviatrixEdgeVmSelfmanagedCreate(ctx context.Context, d *schema.Reso
 	if edgeSpoke.EnablePreserveAsPath {
 		err := client.EnableSpokePreserveAsPath(gatewayForSpokeFunctions)
 		if err != nil {
-			return diag.Errorf("could not enable spoke preserve as path after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not enable spoke preserve as path after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
 	if edgeSpoke.BgpPollingTime >= 10 && edgeSpoke.BgpPollingTime != defaultBgpPollingTime {
 		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeSpoke.BgpPollingTime))
 		if err != nil {
-			return diag.Errorf("could not set bgp polling time after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not set bgp polling time after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
 	if edgeSpoke.BgpHoldTime >= 12 && edgeSpoke.BgpHoldTime != defaultBgpHoldTime {
 		err := client.ChangeBgpHoldTime(gatewayForSpokeFunctions.GwName, edgeSpoke.BgpHoldTime)
 		if err != nil {
-			return diag.Errorf("could not change BGP Hold Time after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not change BGP Hold Time after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
 	if edgeSpoke.EnableEdgeTransitiveRouting {
 		err := client.EnableEdgeSpokeTransitiveRouting(ctx, edgeSpoke.GwName)
 		if err != nil {
-			return diag.Errorf("could not enable Edge transitive routing after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not enable Edge transitive routing after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
 	if edgeSpoke.EnableJumboFrame {
 		err := client.EnableJumboFrame(gatewayForGatewayFunctions)
 		if err != nil {
-			return diag.Errorf("could not disable jumbo frame after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not disable jumbo frame after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
 	if edgeSpoke.Latitude != "" || edgeSpoke.Longitude != "" {
 		err := client.UpdateEdgeSpokeGeoCoordinate(ctx, edgeSpoke)
 		if err != nil {
-			return diag.Errorf("could not update geo coordinate after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not update geo coordinate after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
@@ -419,29 +417,29 @@ func resourceAviatrixEdgeVmSelfmanagedCreate(ctx context.Context, d *schema.Reso
 		gatewayForGatewayFunctions.RxQueueSize = edgeSpoke.RxQueueSize
 		err := client.SetRxQueueSize(gatewayForGatewayFunctions)
 		if err != nil {
-			return diag.Errorf("could not set rx queue size after Edge VM Selfmanaged creation: %v", err)
+			return diag.Errorf("could not set rx queue size after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
 	if edgeSpoke.EnableEdgeActiveStandby || edgeSpoke.EnableEdgeActiveStandbyPreemptive {
 		err := client.UpdateEdgeSpoke(ctx, edgeSpoke)
 		if err != nil {
-			return diag.Errorf("could not update Edge active standby or Edge active standby preemptive after Edge Gateway creation: %v", err)
+			return diag.Errorf("could not update Edge active standby or Edge active standby preemptive after Edge Gateway Selfmanaged creation: %v", err)
 		}
 	}
 
-	return resourceAviatrixEdgeVmSelfmanagedReadIfRequired(ctx, d, meta, &flag)
+	return resourceAviatrixEdgeGatewaySelfmanagedReadIfRequired(ctx, d, meta, &flag)
 }
 
-func resourceAviatrixEdgeVmSelfmanagedReadIfRequired(ctx context.Context, d *schema.ResourceData, meta interface{}, flag *bool) diag.Diagnostics {
+func resourceAviatrixEdgeGatewaySelfmanagedReadIfRequired(ctx context.Context, d *schema.ResourceData, meta interface{}, flag *bool) diag.Diagnostics {
 	if !(*flag) {
 		*flag = true
-		return resourceAviatrixEdgeVmSelfmanagedRead(ctx, d, meta)
+		return resourceAviatrixEdgeGatewaySelfmanagedRead(ctx, d, meta)
 	}
 	return nil
 }
 
-func resourceAviatrixEdgeVmSelfmanagedRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAviatrixEdgeGatewaySelfmanagedRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*goaviatrix.Client)
 
 	// handle import
@@ -458,7 +456,7 @@ func resourceAviatrixEdgeVmSelfmanagedRead(ctx context.Context, d *schema.Resour
 			d.SetId("")
 			return nil
 		}
-		return diag.Errorf("could not read Edge VM Selfmanaged: %v", err)
+		return diag.Errorf("could not read Edge Gateway Selfmanaged: %v", err)
 	}
 
 	d.Set("gw_name", edgeSpoke.GwName)
@@ -542,11 +540,11 @@ func resourceAviatrixEdgeVmSelfmanagedRead(ctx context.Context, d *schema.Resour
 	return nil
 }
 
-func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAviatrixEdgeGatewaySelfmanagedUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*goaviatrix.Client)
 
 	// read configs
-	edgeSpoke := marshalEdgeVmSelfmanagedInput(d)
+	edgeSpoke := marshalEdgeGatewaySelfmanagedInput(d)
 
 	// checks before update
 	if !edgeSpoke.EnableEdgeActiveStandby && edgeSpoke.EnableEdgeActiveStandbyPreemptive {
@@ -591,21 +589,21 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 			// Handle the case where prependASPath is empty here so that the API is not called twice
 			err := client.SetPrependASPath(gatewayForTransitFunctions, nil)
 			if err != nil {
-				return diag.Errorf("could not delete prepend_as_path during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not delete prepend_as_path during Edge Gateway Selfmanaged update: %v", err)
 			}
 		}
 
 		if d.HasChange("local_as_number") {
 			err := client.SetLocalASNumber(gatewayForTransitFunctions, edgeSpoke.LocalAsNumber)
 			if err != nil {
-				return diag.Errorf("could not set local_as_number during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not set local_as_number during Edge Gateway Selfmanaged update: %v", err)
 			}
 		}
 
 		if d.HasChange("prepend_as_path") && len(edgeSpoke.PrependAsPath) > 0 {
 			err := client.SetPrependASPath(gatewayForTransitFunctions, edgeSpoke.PrependAsPath)
 			if err != nil {
-				return diag.Errorf("could not set prepend_as_path during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not set prepend_as_path during Edge Gateway Selfmanaged update: %v", err)
 			}
 		}
 	}
@@ -614,12 +612,12 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 		if edgeSpoke.EnableLearnedCidrsApproval {
 			err := client.EnableTransitLearnedCidrsApproval(gatewayForTransitFunctions)
 			if err != nil {
-				return diag.Errorf("could not enable learned cidrs approval during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not enable learned cidrs approval during Edge Gateway Selfmanaged update: %v", err)
 			}
 		} else {
 			err := client.DisableTransitLearnedCidrsApproval(gatewayForTransitFunctions)
 			if err != nil {
-				return diag.Errorf("could not disable learned cidrs approval during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not disable learned cidrs approval during Edge Gateway Selfmanaged update: %v", err)
 			}
 		}
 	}
@@ -628,7 +626,7 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 		gatewayForTransitFunctions.ApprovedLearnedCidrs = edgeSpoke.ApprovedLearnedCidrs
 		err := client.UpdateTransitPendingApprovedCidrs(gatewayForTransitFunctions)
 		if err != nil {
-			return diag.Errorf("could not update approved learned CIDRs during Edge VM Selfmanaged update: %v", err)
+			return diag.Errorf("could not update approved learned CIDRs during Edge Gateway Selfmanaged update: %v", err)
 		}
 	}
 
@@ -636,7 +634,7 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 		gatewayForTransitFunctions.BgpManualSpokeAdvertiseCidrs = strings.Join(edgeSpoke.SpokeBgpManualAdvertisedCidrs, ",")
 		err := client.SetBgpManualSpokeAdvertisedNetworks(gatewayForTransitFunctions)
 		if err != nil {
-			return diag.Errorf("could not set spoke BGP manual advertised CIDRs during Edge VM Selfmanaged update: %v", err)
+			return diag.Errorf("could not set spoke BGP manual advertised CIDRs during Edge Gateway Selfmanaged update: %v", err)
 		}
 	}
 
@@ -644,12 +642,12 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 		if edgeSpoke.EnablePreserveAsPath {
 			err := client.EnableSpokePreserveAsPath(gatewayForSpokeFunctions)
 			if err != nil {
-				return diag.Errorf("could not enable preserve as path during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not enable preserve as path during Edge Gateway Selfmanaged update: %v", err)
 			}
 		} else {
 			err := client.DisableSpokePreserveAsPath(gatewayForSpokeFunctions)
 			if err != nil {
-				return diag.Errorf("could not disable preserve as path during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not disable preserve as path during Edge Gateway Selfmanaged update: %v", err)
 			}
 		}
 	}
@@ -657,14 +655,14 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 	if d.HasChange("bgp_polling_time") {
 		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeSpoke.BgpPollingTime))
 		if err != nil {
-			return diag.Errorf("could not set bgp polling time during Edge VM Selfmanaged update: %v", err)
+			return diag.Errorf("could not set bgp polling time during Edge Gateway Selfmanaged update: %v", err)
 		}
 	}
 
 	if d.HasChange("bgp_hold_time") {
 		err := client.ChangeBgpHoldTime(edgeSpoke.GwName, edgeSpoke.BgpHoldTime)
 		if err != nil {
-			return diag.Errorf("could not change bgp hold time during Edge VM Selfmanaged update: %v", err)
+			return diag.Errorf("could not change bgp hold time during Edge Gateway Selfmanaged update: %v", err)
 		}
 	}
 
@@ -672,12 +670,12 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 		if edgeSpoke.EnableEdgeTransitiveRouting {
 			err := client.EnableEdgeSpokeTransitiveRouting(ctx, edgeSpoke.GwName)
 			if err != nil {
-				return diag.Errorf("could not enable transitive routing during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not enable transitive routing during Edge Gateway Selfmanaged update: %v", err)
 			}
 		} else {
 			err := client.DisableEdgeSpokeTransitiveRouting(ctx, edgeSpoke.GwName)
 			if err != nil {
-				return diag.Errorf("could not disable transitive routing during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not disable transitive routing during Edge Gateway Selfmanaged update: %v", err)
 			}
 		}
 	}
@@ -686,12 +684,12 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 		if edgeSpoke.EnableJumboFrame {
 			err := client.EnableJumboFrame(gatewayForGatewayFunctions)
 			if err != nil {
-				return diag.Errorf("could not enable jumbo frame during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not enable jumbo frame during Edge Gateway Selfmanaged update: %v", err)
 			}
 		} else {
 			err := client.DisableJumboFrame(gatewayForGatewayFunctions)
 			if err != nil {
-				return diag.Errorf("could not disable jumbo frame during Edge VM Selfmanaged update: %v", err)
+				return diag.Errorf("could not disable jumbo frame during Edge Gateway Selfmanaged update: %v", err)
 			}
 		}
 	}
@@ -699,7 +697,7 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 	if d.HasChanges("latitude", "longitude") {
 		err := client.UpdateEdgeSpokeGeoCoordinate(ctx, edgeSpoke)
 		if err != nil {
-			return diag.Errorf("could not update geo coordinate during Edge VM Selfmanaged update: %v", err)
+			return diag.Errorf("could not update geo coordinate during Edge Gateway Selfmanaged update: %v", err)
 		}
 	}
 
@@ -707,7 +705,7 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 		gatewayForGatewayFunctions.RxQueueSize = edgeSpoke.RxQueueSize
 		err := client.SetRxQueueSize(gatewayForGatewayFunctions)
 		if err != nil {
-			return diag.Errorf("could not update rx queue size during Edge VM Selfmanaged update: %v", err)
+			return diag.Errorf("could not update rx queue size during Edge Gateway Selfmanaged update: %v", err)
 		}
 	}
 
@@ -722,10 +720,10 @@ func resourceAviatrixEdgeVmSelfmanagedUpdate(ctx context.Context, d *schema.Reso
 
 	d.Partial(false)
 
-	return resourceAviatrixEdgeVmSelfmanagedRead(ctx, d, meta)
+	return resourceAviatrixEdgeGatewaySelfmanagedRead(ctx, d, meta)
 }
 
-func resourceAviatrixEdgeVmSelfmanagedDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAviatrixEdgeGatewaySelfmanagedDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*goaviatrix.Client)
 
 	gwName := d.Get("gw_name").(string)
@@ -736,7 +734,7 @@ func resourceAviatrixEdgeVmSelfmanagedDelete(ctx context.Context, d *schema.Reso
 
 	err := client.DeleteEdgeSpoke(ctx, gwName)
 	if err != nil {
-		return diag.Errorf("could not delete Edge VM Selfmanaged: %v", err)
+		return diag.Errorf("could not delete Edge Gateway Selfmanaged: %v", err)
 	}
 
 	var fileName string

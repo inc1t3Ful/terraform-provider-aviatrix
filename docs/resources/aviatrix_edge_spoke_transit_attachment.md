@@ -28,13 +28,14 @@ The following arguments are supported:
 
 * `spoke_gw_name` - (Required) Name of the Edge as a Spoke to attach to transit network.
 * `transit_gw_name` - (Required) Name of the transit gateway to attach the Edge as a Spoke to.
+* `edge_wan_interfaces` - (Required) Set of Edge WAN interfaces.
 
 ### Options
 
 * `enable_over_private_network` - (Optional) Switch to enable over the private network. Valid values: true, false. Default: true.
 * `enable_jumbo_frame` - (Optional) Switch to enable jumbo frame. Valid values: true, false. Default: false.
 * `enable_insane_mode` - (Optional) Switch to enable insane mode. Valid values: true, false. Default: false.
-* `insane_mode_tunnel_number` - (Optional) Insane mode tunnel number, requires an integer value. Valid Range: 2-50.
+* `insane_mode_tunnel_number` - (Optional) Insane mode tunnel number, requires an integer value. Valid range for HPE over private network: 0-49. Valid range for HPE over internet: 2-20.
 * `spoke_prepend_as_path` - (Optional) Connection based AS Path Prepend. Can only use the gateway's own local AS number, repeated up to 25 times. Applies on the Edge as a Spoke.
 * `transit_prepend_as_path` - (Optional) Connection based AS Path Prepend. Can only use the gateway's own local AS number, repeated up to 25 times. Applies on the Transit Gateway.
 * `number_of_retries` - (Optional) Number of retries. Default value: 0.

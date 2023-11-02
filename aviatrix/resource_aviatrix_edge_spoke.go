@@ -236,7 +236,7 @@ func resourceAviatrixEdgeSpoke() *schema.Resource {
 				},
 			},
 		},
-		DeprecationMessage: "Since V3.1.1+, please use resource aviatrix_edge_vm_selfmanaged instead. Resource " +
+		DeprecationMessage: "Since V3.1.2+, please use resource aviatrix_edge_gateway_selfmanaged instead. Resource " +
 			"aviatrix_edge_spoke will be deprecated in the V3.2.0 release.",
 	}
 }
@@ -282,14 +282,6 @@ func marshalEdgeSpokeInput(d *schema.ResourceData) *goaviatrix.EdgeSpoke {
 		}
 
 		edgeSpoke.InterfaceList = append(edgeSpoke.InterfaceList, if2)
-	}
-
-	if !edgeSpoke.EnableEdgeActiveStandby {
-		edgeSpoke.DisableEdgeActiveStandby = true
-	}
-
-	if !edgeSpoke.EnableEdgeActiveStandbyPreemptive {
-		edgeSpoke.DisableEdgeActiveStandbyPreemptive = true
 	}
 
 	return edgeSpoke
@@ -432,6 +424,13 @@ func resourceAviatrixEdgeSpokeCreate(ctx context.Context, d *schema.ResourceData
 		}
 	}
 
+	if edgeSpoke.EnableEdgeActiveStandby || edgeSpoke.EnableEdgeActiveStandbyPreemptive {
+		err := client.UpdateEdgeSpoke(ctx, edgeSpoke)
+		if err != nil {
+			return diag.Errorf("could not update Edge active standby or Edge active standby preemptive after Edge as a Spoke creation: %v", err)
+		}
+	}
+
 	return resourceAviatrixEdgeSpokeReadIfRequired(ctx, d, meta, &flag)
 }
 
@@ -473,6 +472,10 @@ func resourceAviatrixEdgeSpokeRead(ctx context.Context, d *schema.ResourceData, 
 	d.Set("enable_edge_active_standby", edgeSpoke.EnableEdgeActiveStandby)
 	d.Set("enable_edge_active_standby_preemptive", edgeSpoke.EnableEdgeActiveStandbyPreemptive)
 	d.Set("enable_learned_cidrs_approval", edgeSpoke.EnableLearnedCidrsApproval)
+
+	if edgeSpoke.ZtpFileType == "iso" || edgeSpoke.ZtpFileType == "cloud-init" {
+		d.Set("ztp_file_type", edgeSpoke.ZtpFileType)
+	}
 
 	if edgeSpoke.ManagementEgressIpPrefix == "" {
 		d.Set("management_egress_ip_prefix_list", nil)
