@@ -95,9 +95,18 @@ func resourceAviatrixEdgeSpokeTransitAttachment() *schema.Resource {
 			},
 			"edge_wan_interfaces": {
 				Type:        schema.TypeSet,
-				Required:    true,
+				Optional:    true,
 				ForceNew:    true,
 				Description: "Set of Edge WAN interfaces.",
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+				DiffSuppressFunc: goaviatrix.DiffSuppressFuncEdgeSpokeTransitAttachmentEdgeWanInterfaces,
+			},
+			"default_edge_wan_interfaces": {
+				Type:        schema.TypeSet,
+				Computed:    true,
+				Description: "Default Edge WAN interfaces.",
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -127,11 +136,13 @@ func resourceAviatrixEdgeSpokeTransitAttachmentCreate(ctx context.Context, d *sc
 
 	attachment := marshalEdgeSpokeTransitAttachmentInput(d)
 
-	if attachment.EnableOverPrivateNetwork && (attachment.InsaneModeTunnelNumber < 0 || attachment.InsaneModeTunnelNumber > 49) {
-		return diag.Errorf("valid range for HPE over private network: 0-49")
-	}
-	if !attachment.EnableOverPrivateNetwork && (attachment.InsaneModeTunnelNumber < 2 || attachment.InsaneModeTunnelNumber > 20) {
-		return diag.Errorf("valid range for HPE over internet: 2-20")
+	if attachment.EnableInsaneMode {
+		if attachment.EnableOverPrivateNetwork && (attachment.InsaneModeTunnelNumber < 0 || attachment.InsaneModeTunnelNumber > 49) {
+			return diag.Errorf("valid range for HPE over private network: 0-49")
+		}
+		if !attachment.EnableOverPrivateNetwork && (attachment.InsaneModeTunnelNumber < 2 || attachment.InsaneModeTunnelNumber > 20) {
+			return diag.Errorf("valid range for HPE over internet: 2-20")
+		}
 	}
 
 	d.SetId(attachment.SpokeGwName + "~" + attachment.TransitGwName)
@@ -253,7 +264,29 @@ func resourceAviatrixEdgeSpokeTransitAttachmentRead(ctx context.Context, d *sche
 		d.Set("transit_prepend_as_path", nil)
 	}
 
-	d.Set("edge_wan_interfaces", attachment.EdgeWanInterfacesResp)
+	edgeSpoke, err := client.GetEdgeSpoke(ctx, spokeGwName)
+	if err != nil {
+		return diag.Errorf("couldn't get wan interfaces for edge gateway %s: %s", spokeGwName, err)
+	}
+	var defaultWanInterfaces []string
+	for _, if0 := range edgeSpoke.InterfaceList {
+		if if0.Type == "WAN" {
+			defaultWanInterfaces = append(defaultWanInterfaces, if0.IfName)
+		}
+	}
+
+	edgeWanInterfacesInput := getStringSet(d, "edge_wan_interfaces")
+
+	if len(attachment.EdgeWanInterfacesResp) == 0 || (len(edgeWanInterfacesInput) == 0 && goaviatrix.Equivalent(attachment.EdgeWanInterfacesResp, defaultWanInterfaces)) ||
+		(len(edgeWanInterfacesInput) != 0 && goaviatrix.Equivalent(edgeWanInterfacesInput, defaultWanInterfaces)) {
+		d.Set("edge_wan_interfaces", nil)
+	} else {
+		d.Set("edge_wan_interfaces", attachment.EdgeWanInterfacesResp)
+	}
+
+	if len(defaultWanInterfaces) != 0 && len(attachment.EdgeWanInterfacesResp) != 0 {
+		d.Set("default_edge_wan_interfaces", defaultWanInterfaces)
+	}
 
 	d.SetId(spokeGwName + "~" + transitGwName)
 	return nil
@@ -261,6 +294,19 @@ func resourceAviatrixEdgeSpokeTransitAttachmentRead(ctx context.Context, d *sche
 
 func resourceAviatrixEdgeSpokeTransitAttachmentUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*goaviatrix.Client)
+
+	enableInsaneMode := d.Get("enable_insane_mode").(bool)
+	enableOverPrivateNetwork := d.Get("enable_over_private_network").(bool)
+	insaneModeTunnelNumber := d.Get("insane_mode_tunnel_number").(int)
+
+	if enableInsaneMode {
+		if enableOverPrivateNetwork && (insaneModeTunnelNumber < 0 || insaneModeTunnelNumber > 49) {
+			return diag.Errorf("valid range for HPE over private network: 0-49")
+		}
+		if !enableOverPrivateNetwork && (insaneModeTunnelNumber < 2 || insaneModeTunnelNumber > 20) {
+			return diag.Errorf("valid range for HPE over internet: 2-20")
+		}
+	}
 
 	d.Partial(true)
 
@@ -297,7 +343,7 @@ func resourceAviatrixEdgeSpokeTransitAttachmentUpdate(ctx context.Context, d *sc
 		transitGatewayPeering := &goaviatrix.TransitGatewayPeering{
 			TransitGatewayName1: spokeGwName,
 			TransitGatewayName2: transitGwName,
-			TunnelCount:         d.Get("insane_mode_tunnel_number").(int),
+			TunnelCount:         insaneModeTunnelNumber,
 		}
 
 		err := client.UpdateTransitGatewayPeering(transitGatewayPeering)

@@ -52,15 +52,32 @@ type EdgeSpoke struct {
 	State                              string  `json:"vpc_state,omitempty"`
 	InterfaceList                      []*EdgeSpokeInterface
 	Interfaces                         string `json:"interfaces,omitempty"`
+	VlanList                           []*EdgeSpokeVlan
+	Vlan                               string `json:"vlan,omitempty"`
 }
 
 type EdgeSpokeInterface struct {
-	IfName    string `json:"ifname"`
-	Type      string `json:"type"`
-	Dhcp      bool   `json:"dhcp"`
-	PublicIp  string `json:"public_ip"`
-	IpAddr    string `json:"ipaddr"`
-	GatewayIp string `json:"gateway_ip"`
+	IfName        string             `json:"ifname"`
+	Type          string             `json:"type"`
+	Dhcp          bool               `json:"dhcp"`
+	PublicIp      string             `json:"public_ip"`
+	IpAddr        string             `json:"ipaddr"`
+	GatewayIp     string             `json:"gateway_ip"`
+	SubInterfaces []*EdgeEquinixVlan `json:"subinterfaces"`
+	VrrpState     bool               `json:"vrrp_state"`
+	VirtualIp     string             `json:"virtual_ip"`
+	Tag           string             `json:"tag"`
+}
+
+type EdgeSpokeVlan struct {
+	ParentInterface string `json:"parent_interface"`
+	VlanId          string `json:"vlan_id"`
+	IpAddr          string `json:"ipaddr"`
+	GatewayIp       string `json:"gateway_ip"`
+	PeerIpAddr      string `json:"peer_ipaddr"`
+	PeerGatewayIp   string `json:"peer_gateway_ip"`
+	VirtualIp       string `json:"virtual_ip"`
+	Tag             string `json:"tag"`
 }
 
 type EdgeSpokeResp struct {
@@ -110,6 +127,17 @@ func (c *Client) CreateEdgeSpoke(ctx context.Context, edgeSpoke *EdgeSpoke) erro
 	}
 
 	edgeSpoke.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
+
+	if edgeSpoke.VlanList == nil || len(edgeSpoke.VlanList) == 0 {
+		edgeSpoke.VlanList = []*EdgeSpokeVlan{}
+	}
+
+	vlan, err := json.Marshal(edgeSpoke.VlanList)
+	if err != nil {
+		return err
+	}
+
+	edgeSpoke.Vlan = b64.StdEncoding.EncodeToString(vlan)
 
 	resp, err := c.PostAPIContext2Download(ctx, edgeSpoke.Action, edgeSpoke, BasicCheck)
 	if err != nil {
@@ -176,6 +204,17 @@ func (c *Client) UpdateEdgeSpoke(ctx context.Context, edgeSpoke *EdgeSpoke) erro
 	}
 
 	edgeSpoke.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
+
+	if edgeSpoke.VlanList == nil || len(edgeSpoke.VlanList) == 0 {
+		edgeSpoke.VlanList = []*EdgeSpokeVlan{}
+	}
+
+	vlan, err := json.Marshal(edgeSpoke.VlanList)
+	if err != nil {
+		return err
+	}
+
+	edgeSpoke.Vlan = b64.StdEncoding.EncodeToString(vlan)
 
 	return c.PostAPIContext2(ctx, nil, edgeSpoke.Action, edgeSpoke, BasicCheck)
 }
