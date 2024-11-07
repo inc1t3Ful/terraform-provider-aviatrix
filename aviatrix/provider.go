@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-var supportedVersions = []string{"7.1"}
+var supportedVersions = []string{"7.2"}
 
 // Provider returns a schema.Provider for Aviatrix.
 func Provider() *schema.Provider {
@@ -90,8 +90,6 @@ func Provider() *schema.Provider {
 			"aviatrix_azure_spoke_native_peering":                             resourceAviatrixAzureSpokeNativePeering(),
 			"aviatrix_azure_vng_conn":                                         resourceAviatrixAzureVngConn(),
 			"aviatrix_centralized_transit_firenet":                            resourceAviatrixCentralizedTransitFireNet(),
-			"aviatrix_cloudn_registration":                                    resourceAviatrixCloudnRegistration(),
-			"aviatrix_cloudn_transit_gateway_attachment":                      resourceAviatrixCloudnTransitGatewayAttachment(),
 			"aviatrix_cloudwatch_agent":                                       resourceAviatrixCloudwatchAgent(),
 			"aviatrix_controller_access_allow_list_config":                    resourceAviatrixControllerAccessAllowListConfig(),
 			"aviatrix_controller_bgp_max_as_limit_config":                     resourceAviatrixControllerBgpMaxAsLimitConfig(),
@@ -127,6 +125,7 @@ func Provider() *schema.Provider {
 			"aviatrix_edge_platform":                                          resourceAviatrixEdgePlatform(),
 			"aviatrix_edge_platform_device_onboarding":                        resourceAviatrixEdgePlatformDeviceOnboarding(),
 			"aviatrix_edge_platform_ha":                                       resourceAviatrixEdgePlatformHa(),
+			"aviatrix_edge_proxy_profile":                                     resourceAviatrixEdgeProxyProfileConfig(),
 			"aviatrix_edge_spoke":                                             resourceAviatrixEdgeSpoke(),
 			"aviatrix_edge_spoke_external_device_conn":                        resourceAviatrixEdgeSpokeExternalDeviceConn(),
 			"aviatrix_edge_spoke_transit_attachment":                          resourceAviatrixEdgeSpokeTransitAttachment(),
@@ -153,6 +152,7 @@ func Provider() *schema.Provider {
 			"aviatrix_geo_vpn":                                                resourceAviatrixGeoVPN(),
 			"aviatrix_global_vpc_excluded_instance":                           resourceAviatrixGlobalVpcExcludedInstance(),
 			"aviatrix_global_vpc_tagging_settings":                            resourceAviatrixGlobalVpcTaggingSettings(),
+			"aviatrix_kubernetes_cluster":                                     resourceAviatrixKubernetesCluster(),
 			"aviatrix_link_hierarchy":                                         resourceAviatrixLinkHierarchy(),
 			"aviatrix_netflow_agent":                                          resourceAviatrixNetflowAgent(),
 			"aviatrix_periodic_ping":                                          resourceAviatrixPeriodicPing(),

@@ -33,6 +33,7 @@ type EdgeEquinix struct {
 	SpokeBgpManualAdvertisedCidrs      []string `json:"bgp_manual_spoke_advertise_cidrs,omitempty"`
 	EnablePreserveAsPath               bool     `json:"preserve_as_path,omitempty"`
 	BgpPollingTime                     int      `json:"bgp_polling_time,omitempty"`
+	BgpBfdPollingTime                  int      `json:"bgp_neighbor_status_polling_time,omitempty"`
 	BgpHoldTime                        int      `json:"bgp_hold_time,omitempty"`
 	EnableEdgeTransitiveRouting        bool     `json:"edge_transitive_routing,omitempty"`
 	EnableJumboFrame                   bool     `json:"jumbo_frame,omitempty"`
@@ -54,7 +55,6 @@ type EdgeEquinix struct {
 type EdgeEquinixInterface struct {
 	IfName        string             `json:"ifname"`
 	Type          string             `json:"type"`
-	Bandwidth     int                `json:"bandwidth"`
 	PublicIp      string             `json:"public_ip"`
 	Tag           string             `json:"tag"`
 	Dhcp          bool               `json:"dhcp"`
@@ -62,9 +62,9 @@ type EdgeEquinixInterface struct {
 	GatewayIp     string             `json:"gateway_ip"`
 	DnsPrimary    string             `json:"dns_primary"`
 	DnsSecondary  string             `json:"dns_secondary"`
-	SubInterfaces []*EdgeEquinixVlan `json:"subinterfaces"`
-	VrrpState     bool               `json:"vrrp_state"`
-	VirtualIp     string             `json:"virtual_ip"`
+	SubInterfaces []*EdgeEquinixVlan `json:"subinterfaces,omitempty"`
+	VrrpState     bool               `json:"vrrp_state,omitempty"`
+	VirtualIp     string             `json:"virtual_ip,omitempty"`
 }
 
 type EdgeEquinixVlan struct {
@@ -103,6 +103,7 @@ type EdgeEquinixResp struct {
 	SpokeBgpManualAdvertisedCidrs      []string     `json:"bgp_manual_spoke_advertise_cidrs"`
 	EnablePreserveAsPath               bool         `json:"preserve_as_path"`
 	BgpPollingTime                     int          `json:"bgp_polling_time"`
+	BgpBfdPollingTime                  int          `json:"bgp_neighbor_status_polling_time"`
 	BgpHoldTime                        int          `json:"bgp_hold_time"`
 	EnableEdgeTransitiveRouting        bool         `json:"edge_transitive_routing"`
 	EnableJumboFrame                   bool         `json:"jumbo_frame"`
@@ -143,7 +144,7 @@ func (c *Client) CreateEdgeEquinix(ctx context.Context, edgeEquinix *EdgeEquinix
 
 	edgeEquinix.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
 
-	if edgeEquinix.VlanList == nil || len(edgeEquinix.VlanList) == 0 {
+	if len(edgeEquinix.VlanList) == 0 {
 		edgeEquinix.VlanList = []*EdgeEquinixVlan{}
 	}
 
@@ -228,7 +229,7 @@ func (c *Client) UpdateEdgeEquinix(ctx context.Context, edgeEquinix *EdgeEquinix
 
 	edgeEquinix.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
 
-	if edgeEquinix.VlanList == nil || len(edgeEquinix.VlanList) == 0 {
+	if len(edgeEquinix.VlanList) == 0 {
 		edgeEquinix.VlanList = []*EdgeEquinixVlan{}
 	}
 

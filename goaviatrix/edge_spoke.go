@@ -41,6 +41,7 @@ type EdgeSpoke struct {
 	SpokeBgpManualAdvertisedCidrs      []string `json:"bgp_manual_spoke_advertise_cidrs,omitempty"`
 	EnablePreserveAsPath               bool     `json:"preserve_as_path,omitempty"`
 	BgpPollingTime                     int      `json:"bgp_polling_time,omitempty"`
+	BgpBfdPollingTime                  int      `json:"bgp_neighbor_status_polling_time,omitempty"`
 	BgpHoldTime                        int      `json:"bgp_hold_time,omitempty"`
 	EnableEdgeTransitiveRouting        bool     `json:"edge_transitive_routing,omitempty"`
 	EnableJumboFrame                   bool     `json:"jumbo_frame,omitempty"`
@@ -57,27 +58,27 @@ type EdgeSpoke struct {
 }
 
 type EdgeSpokeInterface struct {
-	IfName        string             `json:"ifname"`
-	Type          string             `json:"type"`
-	Dhcp          bool               `json:"dhcp"`
-	PublicIp      string             `json:"public_ip"`
-	IpAddr        string             `json:"ipaddr"`
-	GatewayIp     string             `json:"gateway_ip"`
-	SubInterfaces []*EdgeEquinixVlan `json:"subinterfaces"`
-	VrrpState     bool               `json:"vrrp_state"`
-	VirtualIp     string             `json:"virtual_ip"`
-	Tag           string             `json:"tag"`
+	IfName        string           `json:"ifname"`
+	Type          string           `json:"type"`
+	Dhcp          bool             `json:"dhcp,omitempty"`
+	PublicIp      string           `json:"public_ip,omitempty"`
+	IpAddr        string           `json:"ipaddr,omitempty"`
+	GatewayIp     string           `json:"gateway_ip,omitempty"`
+	SubInterfaces []*EdgeSpokeVlan `json:"subinterfaces,omitempty"`
+	VrrpState     bool             `json:"vrrp_state,omitempty"`
+	VirtualIp     string           `json:"virtual_ip,omitempty"`
+	Tag           string           `json:"tag,omitempty"`
 }
 
 type EdgeSpokeVlan struct {
 	ParentInterface string `json:"parent_interface"`
-	VlanId          string `json:"vlan_id"`
-	IpAddr          string `json:"ipaddr"`
-	GatewayIp       string `json:"gateway_ip"`
-	PeerIpAddr      string `json:"peer_ipaddr"`
-	PeerGatewayIp   string `json:"peer_gateway_ip"`
-	VirtualIp       string `json:"virtual_ip"`
-	Tag             string `json:"tag"`
+	VlanId          string `json:"vlan_id,omitempty"`
+	IpAddr          string `json:"ipaddr,omitempty"`
+	GatewayIp       string `json:"gateway_ip,omitempty"`
+	PeerIpAddr      string `json:"peer_ipaddr,omitempty"`
+	PeerGatewayIp   string `json:"peer_gateway_ip,omitempty"`
+	VirtualIp       string `json:"virtual_ip,omitempty"`
+	Tag             string `json:"tag,omitempty"`
 }
 
 type EdgeSpokeResp struct {
@@ -99,6 +100,7 @@ type EdgeSpokeResp struct {
 	SpokeBgpManualAdvertisedCidrs      []string              `json:"bgp_manual_spoke_advertise_cidrs"`
 	EnablePreserveAsPath               bool                  `json:"preserve_as_path"`
 	BgpPollingTime                     int                   `json:"bgp_polling_time"`
+	BgpBfdPollingTime                  int                   `json:"bgp_neighbor_status_polling_time"`
 	BgpHoldTime                        int                   `json:"bgp_hold_time"`
 	EnableEdgeTransitiveRouting        bool                  `json:"edge_transitive_routing"`
 	EnableJumboFrame                   bool                  `json:"jumbo_frame"`
@@ -128,7 +130,7 @@ func (c *Client) CreateEdgeSpoke(ctx context.Context, edgeSpoke *EdgeSpoke) erro
 
 	edgeSpoke.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
 
-	if edgeSpoke.VlanList == nil || len(edgeSpoke.VlanList) == 0 {
+	if len(edgeSpoke.VlanList) == 0 {
 		edgeSpoke.VlanList = []*EdgeSpokeVlan{}
 	}
 
@@ -205,7 +207,7 @@ func (c *Client) UpdateEdgeSpoke(ctx context.Context, edgeSpoke *EdgeSpoke) erro
 
 	edgeSpoke.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
 
-	if edgeSpoke.VlanList == nil || len(edgeSpoke.VlanList) == 0 {
+	if len(edgeSpoke.VlanList) == 0 {
 		edgeSpoke.VlanList = []*EdgeSpokeVlan{}
 	}
 

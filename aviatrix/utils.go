@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -221,10 +221,14 @@ func DiffSuppressFuncNatInterface(k, old, new string, d *schema.ResourceData) bo
 	connectionKey := strings.Replace(k, "interface", "connection", 1)
 	connection := d.Get(connectionKey).(string)
 
-	// Check if the number of snat policies has not changed so that interface can be set when a policy is added.
-	// Without this check, the value for interface will be suppressed and interface = "" will
-	// be passed to the API even if interface = "eth0" in the configuration.
-	if !d.HasChange("snat_policy.#") && !(connection == "" || connection == "None") {
+	// If this is a "connection" based NAT, check if the number of SNAT or DNAT
+	// policies have changed. If they have, we set the interface to the default
+	// value of "eth0" and ensure that is sent in the request, otherwise it will
+	// be rejected.
+	// TODO(AVX-54006): The interface should not be required in this particular
+	// case.  This should be fixed on the controller side in the future so that
+	// this check is no longer necessary.
+	if !d.HasChange("snat_policy.#") && !d.HasChange("dnat_policy.#") && !(connection == "" || connection == "None") {
 		return old == "" && new == "eth0"
 	}
 	return false
@@ -359,20 +363,48 @@ func compareImageSize(imageSize1, imageSize2, flag string, indexFlag int) bool {
 	return false
 }
 
-func mapContains(m map[string]interface{}, key string) bool {
-	val, exists := m[key]
-	if !exists {
-		return false
-	}
+// Define the interface order including eth0, eth1, eth2, eth3, eth4...etc
+var interfaceOrder = []string{"eth0", "eth1", "eth2", "eth3", "eth4", "eth5", "eth6", "eth7", "eth8", "eth9"}
 
-	switch v := val.(type) {
-	case string:
-		return len(v) > 0
-	case map[string]interface{}:
-		return len(v) > 0
-	case []interface{}:
-		return len(v) > 0
-	default:
-		return !reflect.ValueOf(val).IsZero()
+// Create a mapping of each type to its index in the interface order
+func createOrderMap(order []string) map[string]int {
+	orderMap := make(map[string]int)
+	for i, value := range order {
+		orderMap[value] = i
 	}
+	return orderMap
+}
+
+// Sorting function that uses the interface order
+func sortInterfacesByCustomOrder(interfaces []goaviatrix.EdgeTransitInterface) []goaviatrix.EdgeTransitInterface {
+	orderMap := createOrderMap(interfaceOrder)
+	sort.SliceStable(interfaces, func(i, j int) bool {
+		iIndex, iExists := orderMap[interfaces[i].Name]
+		jIndex, jExists := orderMap[interfaces[j].Name]
+		if !iExists {
+			iIndex = len(orderMap)
+		}
+		if !jExists {
+			jIndex = len(orderMap)
+		}
+		return iIndex < jIndex
+	})
+	return interfaces
+}
+
+// Sorting function that uses the interface mapping order
+func sortInterfaceMappingByCustomOrder(interfaceMapping []goaviatrix.InterfaceMapping) []goaviatrix.InterfaceMapping {
+	orderMap := createOrderMap(interfaceOrder)
+	sort.SliceStable(interfaceMapping, func(i, j int) bool {
+		iIndex, iExists := orderMap[interfaceMapping[i].Name]
+		jIndex, jExists := orderMap[interfaceMapping[j].Name]
+		if !iExists {
+			iIndex = len(orderMap)
+		}
+		if !jExists {
+			jIndex = len(orderMap)
+		}
+		return iIndex < jIndex
+	})
+	return interfaceMapping
 }

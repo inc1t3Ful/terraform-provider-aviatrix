@@ -54,6 +54,7 @@ func resourceAviatrixEdgeZededaHa() *schema.Resource {
 							Type:        schema.TypeInt,
 							Optional:    true,
 							Description: "The rate of data can be moved through the interface, requires an integer value. Unit is in Mb/s.",
+							Deprecated:  "Bandwidth will be removed in a future release.",
 						},
 						"enable_dhcp": {
 							Type:        schema.TypeBool,
@@ -124,7 +125,6 @@ func marshalEdgeZededaHaInput(d *schema.ResourceData) *goaviatrix.EdgeCSPHa {
 		if2 := &goaviatrix.Interface{
 			IfName:       if1["name"].(string),
 			Type:         if1["type"].(string),
-			Bandwidth:    if1["bandwidth"].(int),
 			PublicIp:     if1["wan_public_ip"].(string),
 			Tag:          if1["tag"].(string),
 			Dhcp:         if1["enable_dhcp"].(bool),
@@ -189,7 +189,6 @@ func resourceAviatrixEdgeZededaHaRead(ctx context.Context, d *schema.ResourceDat
 		if1 := make(map[string]interface{})
 		if1["name"] = if0.IfName
 		if1["type"] = if0.Type
-		if1["bandwidth"] = if0.Bandwidth
 		if1["wan_public_ip"] = if0.PublicIp
 		if1["tag"] = if0.Tag
 		if1["enable_dhcp"] = if0.Dhcp

@@ -32,6 +32,7 @@ type EdgeNEO struct {
 	SpokeBgpManualAdvertisedCidrs      []string `json:"bgp_manual_spoke_advertise_cidrs,omitempty"`
 	EnablePreserveAsPath               bool     `json:"preserve_as_path,omitempty"`
 	BgpPollingTime                     int      `json:"bgp_polling_time,omitempty"`
+	BgpBfdPollingTime                  int      `json:"bgp_neighbor_status_polling_time,omitempty"`
 	BgpHoldTime                        int      `json:"bgp_hold_time,omitempty"`
 	EnableEdgeTransitiveRouting        bool     `json:"edge_transitive_routing,omitempty"`
 	EnableJumboFrame                   bool     `json:"jumbo_frame,omitempty"`
@@ -57,7 +58,6 @@ type EdgeNEO struct {
 type EdgeNEOInterface struct {
 	IfName        string         `json:"ifname"`
 	Type          string         `json:"type"`
-	Bandwidth     int            `json:"bandwidth"`
 	PublicIp      string         `json:"public_ip"`
 	Tag           string         `json:"tag"`
 	Dhcp          bool           `json:"dhcp"`
@@ -103,6 +103,7 @@ type EdgeNEOResp struct {
 	SpokeBgpManualAdvertisedCidrs      []string            `json:"bgp_manual_spoke_advertise_cidrs"`
 	EnablePreserveAsPath               bool                `json:"preserve_as_path"`
 	BgpPollingTime                     int                 `json:"bgp_polling_time"`
+	BgpBfdPollingTime                  int                 `json:"bgp_neighbor_status_polling_time"`
 	BgpHoldTime                        int                 `json:"bgp_hold_time"`
 	EnableEdgeTransitiveRouting        bool                `json:"edge_transitive_routing"`
 	EnableJumboFrame                   bool                `json:"jumbo_frame"`
@@ -141,7 +142,7 @@ func (c *Client) CreateEdgeNEO(ctx context.Context, edgeNEO *EdgeNEO) error {
 
 	edgeNEO.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
 
-	if edgeNEO.VlanList == nil || len(edgeNEO.VlanList) == 0 {
+	if len(edgeNEO.VlanList) == 0 {
 		edgeNEO.VlanList = []*EdgeNEOVlan{}
 	}
 
@@ -212,7 +213,7 @@ func (c *Client) UpdateEdgeNEO(ctx context.Context, edgeNEO *EdgeNEO) error {
 
 	edgeNEO.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
 
-	if edgeNEO.VlanList == nil || len(edgeNEO.VlanList) == 0 {
+	if len(edgeNEO.VlanList) == 0 {
 		edgeNEO.VlanList = []*EdgeNEOVlan{}
 	}
 

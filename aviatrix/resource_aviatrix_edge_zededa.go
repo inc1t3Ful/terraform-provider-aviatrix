@@ -156,6 +156,13 @@ func resourceAviatrixEdgeZededa() *schema.Resource {
 				ValidateFunc: validation.IntBetween(10, 50),
 				Description:  "BGP route polling time for BGP Spoke Gateway. Unit is in seconds. Valid values are between 10 and 50.",
 			},
+			"bgp_neighbor_status_polling_time": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Default:      defaultBgpNeighborStatusPollingTime,
+				ValidateFunc: validation.IntBetween(1, 10),
+				Description:  "BGP neighbor status polling time for BGP Spoke Gateway. Unit is in seconds. Valid values are between 1 and 10.",
+			},
 			"bgp_hold_time": {
 				Type:         schema.TypeInt,
 				Optional:     true,
@@ -250,6 +257,7 @@ func resourceAviatrixEdgeZededa() *schema.Resource {
 							Type:        schema.TypeInt,
 							Optional:    true,
 							Description: "The rate of data can be moved through the interface, requires an integer value. Unit is in Mb/s.",
+							Deprecated:  "Bandwidth will be removed in a future release.",
 						},
 						"enable_dhcp": {
 							Type:        schema.TypeBool,
@@ -390,6 +398,7 @@ func marshalEdgeZededaInput(d *schema.ResourceData) *goaviatrix.EdgeCSP {
 		SpokeBgpManualAdvertisedCidrs:      getStringSet(d, "spoke_bgp_manual_advertise_cidrs"),
 		EnablePreserveAsPath:               d.Get("enable_preserve_as_path").(bool),
 		BgpPollingTime:                     d.Get("bgp_polling_time").(int),
+		BgpBfdPollingTime:                  d.Get("bgp_neighbor_status_polling_time").(int),
 		BgpHoldTime:                        d.Get("bgp_hold_time").(int),
 		EnableEdgeTransitiveRouting:        d.Get("enable_edge_transitive_routing").(bool),
 		EnableJumboFrame:                   d.Get("enable_jumbo_frame").(bool),
@@ -410,7 +419,6 @@ func marshalEdgeZededaInput(d *schema.ResourceData) *goaviatrix.EdgeCSP {
 		if2 := &goaviatrix.Interface{
 			IfName:       if1["name"].(string),
 			Type:         if1["type"].(string),
-			Bandwidth:    if1["bandwidth"].(int),
 			PublicIp:     if1["wan_public_ip"].(string),
 			Tag:          if1["tag"].(string),
 			Dhcp:         if1["enable_dhcp"].(bool),
@@ -551,9 +559,16 @@ func resourceAviatrixEdgeZededaCreate(ctx context.Context, d *schema.ResourceDat
 	}
 
 	if edgeCSP.BgpPollingTime >= 10 && edgeCSP.BgpPollingTime != defaultBgpPollingTime {
-		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeCSP.BgpPollingTime))
+		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, edgeCSP.BgpPollingTime)
 		if err != nil {
 			return diag.Errorf("could not set bgp polling time after Edge Zededa creation: %v", err)
+		}
+	}
+
+	if edgeCSP.BgpBfdPollingTime >= 1 && edgeCSP.BgpBfdPollingTime != defaultBgpNeighborStatusPollingTime {
+		err := client.SetBgpBfdPollingTimeSpoke(gatewayForSpokeFunctions, edgeCSP.BgpBfdPollingTime)
+		if err != nil {
+			return diag.Errorf("could not set bgp neighbor status polling time after Edge Zededa creation: %v", err)
 		}
 	}
 
@@ -693,6 +708,7 @@ func resourceAviatrixEdgeZededaRead(ctx context.Context, d *schema.ResourceData,
 
 	d.Set("enable_preserve_as_path", edgeCSPResp.EnablePreserveAsPath)
 	d.Set("bgp_polling_time", edgeCSPResp.BgpPollingTime)
+	d.Set("bgp_neighbor_status_polling_time", edgeCSPResp.BgpBfdPollingTime)
 	d.Set("bgp_hold_time", edgeCSPResp.BgpHoldTime)
 	d.Set("enable_edge_transitive_routing", edgeCSPResp.EnableEdgeTransitiveRouting)
 	d.Set("enable_jumbo_frame", edgeCSPResp.EnableJumboFrame)
@@ -716,7 +732,6 @@ func resourceAviatrixEdgeZededaRead(ctx context.Context, d *schema.ResourceData,
 		if1 := make(map[string]interface{})
 		if1["name"] = if0.IfName
 		if1["type"] = if0.Type
-		if1["bandwidth"] = if0.Bandwidth
 		if1["wan_public_ip"] = if0.PublicIp
 		if1["tag"] = if0.Tag
 		if1["enable_dhcp"] = if0.Dhcp
@@ -883,9 +898,16 @@ func resourceAviatrixEdgeZededaUpdate(ctx context.Context, d *schema.ResourceDat
 	}
 
 	if d.HasChange("bgp_polling_time") {
-		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeCSP.BgpPollingTime))
+		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, edgeCSP.BgpPollingTime)
 		if err != nil {
 			return diag.Errorf("could not set bgp polling time during Edge Zededa update: %v", err)
+		}
+	}
+
+	if d.HasChange("bgp_neighbor_status_polling_time") {
+		err := client.SetBgpBfdPollingTimeSpoke(gatewayForSpokeFunctions, edgeCSP.BgpBfdPollingTime)
+		if err != nil {
+			return diag.Errorf("could not set bgp neighbor status polling time during Edge Zededa update: %v", err)
 		}
 	}
 

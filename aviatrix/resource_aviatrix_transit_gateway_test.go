@@ -25,8 +25,9 @@ func TestAccAviatrixTransitGateway_basic(t *testing.T) {
 	skipGwAZURE := os.Getenv("SKIP_TRANSIT_GATEWAY_AZURE")
 	skipGwGCP := os.Getenv("SKIP_TRANSIT_GATEWAY_GCP")
 	skipGwOCI := os.Getenv("SKIP_TRANSIT_GATEWAY_OCI")
+	skipGwAEP := os.Getenv("SKIP_TRANSIT_GATEWAY_AEP")
 
-	if skipGwAWS == "yes" && skipGwAZURE == "yes" && skipGwGCP == "yes" && skipGwOCI == "yes" {
+	if skipGwAWS == "yes" && skipGwAZURE == "yes" && skipGwGCP == "yes" && skipGwOCI == "yes" && skipGwAEP == "yes" {
 		t.Skip("Skipping Transit gateway test as SKIP_TRANSIT_GATEWAY_AWS, SKIP_TRANSIT_GATEWAY_AZURE, " +
 			"SKIP_TRANSIT_GATEWAY_GCP and SKIP_TRANSIT_GATEWAY_OCI are all set")
 	}
@@ -53,6 +54,8 @@ func TestAccAviatrixTransitGateway_basic(t *testing.T) {
 						resource.TestCheckResourceAttr(resourceNameAws, "vpc_id", os.Getenv("AWS_VPC_ID")),
 						resource.TestCheckResourceAttr(resourceNameAws, "subnet", os.Getenv("AWS_SUBNET")),
 						resource.TestCheckResourceAttr(resourceNameAws, "vpc_reg", os.Getenv("AWS_REGION")),
+						resource.TestCheckResourceAttr(resourceNameAws, "bgp_polling_time", "50"),
+						resource.TestCheckResourceAttr(resourceNameAws, "bgp_neighbor_status_polling_time", "5"),
 					),
 				},
 				{
@@ -181,6 +184,39 @@ func TestAccAviatrixTransitGateway_basic(t *testing.T) {
 	} else {
 		t.Log("Skipping Transit gateway test in aws as SKIP_TRANSIT_GATEWAY_OCI is set")
 	}
+
+	if skipGwAEP != "yes" {
+		resourceNameAEP := "aviatrix_transit_gateway.test_transit_gateway_aep"
+		msgCommonAEP := ". Set SKIP_TRANSIT_GATEWAY_AEP to yes to skip Transit Gateway tests in edge AEP"
+
+		resource.Test(t, resource.TestCase{
+			PreCheck: func() {
+				testAccPreCheck(t)
+				preGatewayCheckEdge(t, msgCommonAEP)
+			},
+			Providers:    testAccProviders,
+			CheckDestroy: testAccCheckTransitGatewayDestroy,
+			Steps: []resource.TestStep{
+				{
+					Config: testAccTransitGatewayConfigBasicAEP(rName),
+					Check: resource.ComposeTestCheckFunc(
+						testAccCheckTransitGatewayExists(resourceNameAEP, &gateway),
+						resource.TestCheckResourceAttr(resourceNameAEP, "gw_name", fmt.Sprintf("tfg-aep-%s", rName)),
+						resource.TestCheckResourceAttr(resourceNameAEP, "gw_size", "SMALL"),
+						resource.TestCheckResourceAttr(resourceNameAEP, "vpc_id", os.Getenv("AEP_VPC_ID")),
+						resource.TestCheckResourceAttr(resourceNameAEP, "site_id", os.Getenv("AEP_VPC_ID")),
+					),
+				},
+				{
+					ResourceName:      resourceNameAEP,
+					ImportState:       true,
+					ImportStateVerify: true,
+				},
+			},
+		})
+	} else {
+		t.Log("Skipping Transit gateway test in edge AEP as SKIP_TRANSIT_GATEWAY_AEP is set")
+	}
 }
 
 func testAccTransitGatewayConfigBasicAWS(rName string) string {
@@ -194,13 +230,15 @@ resource "aviatrix_account" "test_acc_aws" {
 	aws_secret_key     = "%s"
 }
 resource "aviatrix_transit_gateway" "test_transit_gateway_aws" {
-	cloud_type   = 1
-	account_name = aviatrix_account.test_acc_aws.account_name
-	gw_name      = "tfg-aws-%[1]s"
-	vpc_id       = "%[5]s"
-	vpc_reg      = "%[6]s"
-	gw_size      = "t2.micro"
-	subnet       = "%[7]s"
+	cloud_type                       = 1
+	account_name                     = aviatrix_account.test_acc_aws.account_name
+	gw_name                          = "tfg-aws-%[1]s"
+	vpc_id                           = "%[5]s"
+	vpc_reg                          = "%[6]s"
+	gw_size                          = "t2.micro"
+	subnet                           = "%[7]s"
+	bgp_polling_time                 = 50
+	bgp_neighbor_status_polling_time = 5
 }
 	`, rName, os.Getenv("AWS_ACCOUNT_NUMBER"), os.Getenv("AWS_ACCESS_KEY"), os.Getenv("AWS_SECRET_KEY"),
 		os.Getenv("AWS_VPC_ID"), os.Getenv("AWS_REGION"), os.Getenv("AWS_SUBNET"))
@@ -281,6 +319,55 @@ resource "aviatrix_transit_gateway" "test_transit_gateway_oci" {
 	`, rName, os.Getenv("OCI_TENANCY_ID"), os.Getenv("OCI_USER_ID"), os.Getenv("OCI_COMPARTMENT_ID"),
 		os.Getenv("OCI_API_KEY_FILEPATH"), os.Getenv("OCI_VPC_ID"), os.Getenv("OCI_REGION"),
 		ociGwSize, os.Getenv("OCI_SUBNET"))
+}
+
+func testAccTransitGatewayConfigBasicAEP(rName string) string {
+	return fmt.Sprintf(`
+resource "aviatrix_account" "test_acc_edge_aep" {
+	account_name       = "edge-%s"
+	cloud_type         = 262144
+}
+resource "aviatrix_transit_gateway" "test_transit_gateway_aep" {
+	cloud_type   = 262144
+	account_name = aviatrix_account.test_acc_edge_aep.account_name
+	gw_name      = "tfg-edge-aep-%[1]s"
+	vpc_id       = "%[2]s"
+	site_id 	= "%[2]s"
+	device_id = "%[3]s"
+	gw_size      = "SMALL"
+	interfaces {
+        gateway_ip = "192.168.24.1"
+        ifname     = "eth0"
+        ipaddr    = "192.168.24.13/24"
+        type       = "WAN"
+    }
+    interfaces {
+        gateway_ip = "192.168.13.1"
+        ifname     = "eth1"
+        ipaddr    = "192.168.13.33/24"
+        type       = "WAN"
+    }
+    interfaces {
+        dhcp   = true
+        ifname = "eth2"
+        type   = "MANAGEMENT"
+    }
+    interfaces {
+        gateway_ip                  = "192.168.19.1"
+        ifname                      = "eth3"
+        ipaddr                     = "192.168.19.13/24"
+        type                        = "WAN"
+        secondary_private_cidr_list = ["192.168.19.112/29"]
+    }
+    interfaces {
+        gateway_ip                  = "192.168.18.1"
+        ifname                      = "eth4"
+        ipaddr                     = "192.168.18.13/24"
+        type                        = "WAN"
+        secondary_private_cidr_list = ["192.168.18.112/29"]
+    }
+}
+	`, rName, os.Getenv("AEP_VPC_ID"), os.Getenv("AEP_DEVICE_ID"))
 }
 
 func testAccCheckTransitGatewayExists(n string, gateway *goaviatrix.Gateway) resource.TestCheckFunc {

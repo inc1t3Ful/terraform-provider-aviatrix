@@ -34,6 +34,7 @@ type EdgeCSP struct {
 	SpokeBgpManualAdvertisedCidrs      []string `json:"bgp_manual_spoke_advertise_cidrs,omitempty"`
 	EnablePreserveAsPath               bool     `json:"preserve_as_path,omitempty"`
 	BgpPollingTime                     int      `json:"bgp_polling_time,omitempty"`
+	BgpBfdPollingTime                  int      `json:"bgp_neighbor_status_polling_time,omitempty"`
 	BgpHoldTime                        int      `json:"bgp_hold_time,omitempty"`
 	EnableEdgeTransitiveRouting        bool     `json:"edge_transitive_routing,omitempty"`
 	EnableJumboFrame                   bool     `json:"jumbo_frame,omitempty"`
@@ -58,7 +59,6 @@ type EdgeCSP struct {
 type Interface struct {
 	IfName        string  `json:"ifname"`
 	Type          string  `json:"type"`
-	Bandwidth     int     `json:"bandwidth"`
 	PublicIp      string  `json:"public_ip"`
 	Tag           string  `json:"tag"`
 	Dhcp          bool    `json:"dhcp"`
@@ -110,6 +110,7 @@ type EdgeCSPResp struct {
 	SpokeBgpManualAdvertisedCidrs      []string     `json:"bgp_manual_spoke_advertise_cidrs"`
 	EnablePreserveAsPath               bool         `json:"preserve_as_path"`
 	BgpPollingTime                     int          `json:"bgp_polling_time"`
+	BgpBfdPollingTime                  int          `json:"bgp_neighbor_status_polling_time"`
 	BgpHoldTime                        int          `json:"bgp_hold_time"`
 	EnableEdgeTransitiveRouting        bool         `json:"edge_transitive_routing"`
 	EnableJumboFrame                   bool         `json:"jumbo_frame"`
@@ -147,7 +148,7 @@ func (c *Client) CreateEdgeCSP(ctx context.Context, edgeCSP *EdgeCSP) error {
 
 	edgeCSP.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
 
-	if edgeCSP.VlanList == nil || len(edgeCSP.VlanList) == 0 {
+	if len(edgeCSP.VlanList) == 0 {
 		edgeCSP.VlanList = []*Vlan{}
 	}
 
@@ -218,7 +219,7 @@ func (c *Client) UpdateEdgeCSP(ctx context.Context, edgeCSP *EdgeCSP) error {
 
 	edgeCSP.Interfaces = b64.StdEncoding.EncodeToString(interfaces)
 
-	if edgeCSP.VlanList == nil || len(edgeCSP.VlanList) == 0 {
+	if len(edgeCSP.VlanList) == 0 {
 		edgeCSP.VlanList = []*Vlan{}
 	}
 

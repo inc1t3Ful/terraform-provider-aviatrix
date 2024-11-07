@@ -1,5 +1,5 @@
 ---
-subcategory: "Multi-Cloud Transit"
+subcategory: "Edge"
 layout: "aviatrix"
 page_title: "Aviatrix: aviatrix_edge_spoke_external_device_conn"
 description: |-
@@ -24,6 +24,24 @@ resource "aviatrix_edge_spoke_external_device_conn" "test" {
   bgp_remote_as_num = "345"
   local_lan_ip      = "10.230.3.23"
   remote_lan_ip     = "10.0.60.1"
+}
+```
+```hcl
+# Create a BGP BFD enabled Edge as a Spoke External Device Connection
+resource "aviatrix_edge_spoke_external_device_conn" "test" {
+  site_id           = "site-abcd1234"
+  connection_name   = "conn"
+  gw_name           = "eaas"
+  bgp_local_as_num  = "123"
+  bgp_remote_as_num = "345"
+  local_lan_ip      = "10.230.3.23"
+  remote_lan_ip     = "10.0.60.1"
+  enable_bfd = true
+  bgp_bfd {
+    transmit_interval = 400
+    receive_interval = 400
+    multiplier = 5
+  }
 }
 ```
 
@@ -59,6 +77,11 @@ The following arguments are supported:
 * `backup_bgp_remote_as_num` - (Optional) Backup BGP remote ASN (Autonomous System Number). Integer between 1-4294967294. Required if HA enabled for 'bgp' connection.
 * `prepend_as_path` - (Optional) Connection AS Path Prepend customized by specifying AS PATH for a BGP connection.
 * `manual_bgp_advertised_cidrs` - (Optional) Configure manual BGP advertised CIDRs for this connection.
+* `enable_bfd` - (Optional) Required for BGP BFD over IPsec. Valid values: true, false. Default: false.
+* `bgp_bfd` - (Optional) BGP BFD configuration applied to a BGP session. If config is no provided then default values are applied for the connection.
+  * `transmit_interval` - (Optional) BFD transmit interval in ms. Valid values between 10 to 60000. Default: 300.
+  * `receive_interval` - (Optional) BFD receive interval in ms. Valid values between 10 to 60000. Default: 300.
+  * `multiplier` - (Optional) BFD detection multiplier. Valid values between 2 to 255. Default: 3.
 
 ## Import
 

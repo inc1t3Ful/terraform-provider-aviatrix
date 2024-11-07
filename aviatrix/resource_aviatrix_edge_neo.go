@@ -244,6 +244,7 @@ func resourceAviatrixEdgeNEO() *schema.Resource {
 							Type:        schema.TypeInt,
 							Optional:    true,
 							Description: "The rate of data can be moved through the interface, requires an integer value. Unit is in Mb/s.",
+							Deprecated:  "Bandwidth will be removed in a future release.",
 						},
 						"enable_dhcp": {
 							Type:        schema.TypeBool,
@@ -405,7 +406,6 @@ func marshalEdgeNEOInput(d *schema.ResourceData) *goaviatrix.EdgeNEO {
 		interface2 := &goaviatrix.EdgeNEOInterface{
 			IfName:       interface1["name"].(string),
 			Type:         interface1["type"].(string),
-			Bandwidth:    interface1["bandwidth"].(int),
 			PublicIp:     interface1["wan_public_ip"].(string),
 			Tag:          interface1["tag"].(string),
 			Dhcp:         interface1["enable_dhcp"].(bool),
@@ -546,9 +546,16 @@ func resourceAviatrixEdgeNEOCreate(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	if edgeNEO.BgpPollingTime >= 10 && edgeNEO.BgpPollingTime != defaultBgpPollingTime {
-		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeNEO.BgpPollingTime))
+		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, edgeNEO.BgpPollingTime)
 		if err != nil {
 			return diag.Errorf("could not set bgp polling time after Edge NEO creation: %v", err)
+		}
+	}
+
+	if edgeNEO.BgpBfdPollingTime >= 1 && edgeNEO.BgpBfdPollingTime != defaultBgpNeighborStatusPollingTime {
+		err := client.SetBgpBfdPollingTimeSpoke(gatewayForSpokeFunctions, edgeNEO.BgpBfdPollingTime)
+		if err != nil {
+			return diag.Errorf("could not set bgp neighbor status polling time after Edge NEO creation: %v", err)
 		}
 	}
 
@@ -710,7 +717,6 @@ func resourceAviatrixEdgeNEORead(ctx context.Context, d *schema.ResourceData, me
 		interface1 := make(map[string]interface{})
 		interface1["name"] = interface0.IfName
 		interface1["type"] = interface0.Type
-		interface1["bandwidth"] = interface0.Bandwidth
 		interface1["wan_public_ip"] = interface0.PublicIp
 		interface1["tag"] = interface0.Tag
 		interface1["enable_dhcp"] = interface0.Dhcp
@@ -877,7 +883,7 @@ func resourceAviatrixEdgeNEOUpdate(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	if d.HasChange("bgp_polling_time") {
-		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, strconv.Itoa(edgeNEO.BgpPollingTime))
+		err := client.SetBgpPollingTimeSpoke(gatewayForSpokeFunctions, edgeNEO.BgpPollingTime)
 		if err != nil {
 			return diag.Errorf("could not set bgp polling time during Edge NEO update: %v", err)
 		}

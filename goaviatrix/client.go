@@ -16,6 +16,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ajg/form"
@@ -45,8 +46,9 @@ type APIRequest struct {
 //go:generate moq -rm -out client_mock.go . ClientInterface
 type ClientInterface interface {
 	DeleteAccount(account *Account) error
-	GetAccount(account *Account) (*Account, error)
+	GetAccount(account *Account) (Account, error)
 	AuditAccount(ctx context.Context, account *Account) error
+	InvalidateCache()
 }
 
 // Client for accessing the Aviatrix Controller
@@ -59,6 +61,8 @@ type Client struct {
 	ControllerIP     string
 	baseURL          string
 	IgnoreTagsConfig *IgnoreTagsConfig
+	cachedAccounts   []Account
+	cacheMutex       sync.Mutex
 }
 
 type GetApiTokenResp struct {
@@ -176,11 +180,6 @@ func NewClient(username string, password string, controllerIP string, HTTPClient
 	return client.init(controllerIP)
 }
 
-func NewClientForCloudn(username string, password string, controllerIP string, HTTPClient *http.Client, ignoreTagsConfig *IgnoreTagsConfig) (*Client, error) {
-	client := &Client{Username: username, Password: password, HTTPClient: HTTPClient, ControllerIP: controllerIP, IgnoreTagsConfig: ignoreTagsConfig}
-	return client.initForCloudn(controllerIP)
-}
-
 // init initializes the new client with the given controller IP/host.  Logs
 // in to the controller and sets up the http client.
 // Arguments:
@@ -208,29 +207,6 @@ func (c *Client) init(controllerIP string) (*Client, error) {
 		c.HTTPClient = &http.Client{Transport: tr}
 	}
 	if err := c.Login(); err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}
-
-func (c *Client) initForCloudn(controllerIP string) (*Client, error) {
-	if len(controllerIP) == 0 {
-		return nil, fmt.Errorf("Aviatrix: Client: Controller IP is not set")
-	}
-
-	c.baseURL = "https://" + controllerIP + "/v1/api"
-
-	if c.HTTPClient == nil {
-		tr := &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-		c.HTTPClient = &http.Client{Transport: tr}
-	}
-	if err := c.LoginForCloudn(); err != nil {
 		return nil, err
 	}
 
@@ -290,16 +266,6 @@ func (c *Client) PostAPI(action string, d interface{}, checkFunc CheckAPIRespons
 // PostAPIContext makes a post request to the Aviatrix API, decodes the response and checks for any errors
 func (c *Client) PostAPIContext(ctx context.Context, action string, d interface{}, checkFunc CheckAPIResponseFunc) error {
 	resp, err := c.PostContext(ctx, c.baseURL, d)
-	if err != nil {
-		return fmt.Errorf("HTTP POST %q failed: %v", action, err)
-	}
-	return checkAPIResp(resp, action, checkFunc)
-}
-
-// PostAPIContext1 makes a post request to the V1 API, decodes the response and checks for any errors
-func (c *Client) PostAPIContext1(ctx context.Context, action string, d interface{}, checkFunc CheckAPIResponseFunc) error {
-	Url := fmt.Sprintf("https://%s/v1/api", c.ControllerIP)
-	resp, err := c.PostContext(ctx, Url, d)
 	if err != nil {
 		return fmt.Errorf("HTTP POST %q failed: %v", action, err)
 	}

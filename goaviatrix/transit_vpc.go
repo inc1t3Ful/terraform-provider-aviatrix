@@ -48,22 +48,28 @@ type TransitVpc struct {
 	OobManagementSubnet          string `form:"oob_mgmt_subnet,omitempty"`
 	HAOobManagementSubnet        string
 	EnableSummarizeCidrToTgw     bool
-	AvailabilityDomain           string   `form:"availability_domain,omitempty"`
-	FaultDomain                  string   `form:"fault_domain,omitempty"`
-	EnableSpotInstance           bool     `form:"spot_instance,omitempty"`
-	SpotPrice                    string   `form:"spot_price,omitempty"`
-	DeleteSpot                   bool     `form:"delete_spot,omitempty"`
-	ApprovedLearnedCidrs         []string `form:"approved_learned_cidrs"`
-	BgpLanVpcID                  string   `form:"bgp_lan_vpc"`
-	BgpLanSpecifySubnet          string   `form:"bgp_lan_subnet"`
-	Async                        bool     `form:"async,omitempty"`
-	BgpLanInterfacesCount        int      `form:"bgp_lan_intf_count,omitempty"`
-	LbVpcId                      string   `form:"lb_vpc_id,omitempty"`
-	Transit                      bool     `form:"transit,omitempty"`
+	AvailabilityDomain           string                 `form:"availability_domain,omitempty"`
+	FaultDomain                  string                 `form:"fault_domain,omitempty"`
+	EnableSpotInstance           bool                   `form:"spot_instance,omitempty"`
+	SpotPrice                    string                 `form:"spot_price,omitempty"`
+	DeleteSpot                   bool                   `form:"delete_spot,omitempty"`
+	ApprovedLearnedCidrs         []string               `form:"approved_learned_cidrs"`
+	BgpLanVpcID                  string                 `form:"bgp_lan_vpc"`
+	BgpLanSpecifySubnet          string                 `form:"bgp_lan_subnet"`
+	Async                        bool                   `form:"async,omitempty"`
+	BgpLanInterfacesCount        int                    `form:"bgp_lan_intf_count,omitempty"`
+	LbVpcId                      string                 `form:"lb_vpc_id,omitempty"`
+	Transit                      bool                   `form:"transit,omitempty"`
+	DeviceID                     string                 `form:"device_id,omitempty"`
+	SiteID                       string                 `form:"site_id,omitempty"`
+	Interfaces                   string                 `json:"interfaces,omitempty"`
+	InterfaceMapping             string                 `json:"interface_mapping,omitempty"`
+	InterfaceList                []EdgeTransitInterface `json:"interface_list,omitempty"`
 }
 
 type TransitGatewayAdvancedConfig struct {
-	BgpPollingTime                    string
+	BgpPollingTime                    int
+	BgpBfdPollingTime                 int
 	PrependASPath                     []string
 	LocalASNumber                     string
 	BgpEcmpEnabled                    bool
@@ -86,6 +92,7 @@ type StandbyConnection struct {
 
 type TransitGatewayAdvancedConfigRespResult struct {
 	BgpPollingTime                    int                       `json:"bgp_polling_time"`
+	BgpBfdPollingTime                 int                       `json:"bgp_neighbor_status_polling_time"`
 	PrependASPath                     string                    `json:"bgp_prepend_as_path"`
 	LocalASNumber                     string                    `json:"local_asn_num"`
 	BgpEcmpEnabled                    string                    `json:"bgp_ecmp"`
@@ -127,6 +134,16 @@ type TransitGwFireNetInterfacesResp struct {
 	Reason  string                     `json:"reason"`
 }
 
+type EdgeTransitInterface struct {
+	Name           string   `json:"ifname"`
+	Type           string   `json:"type"`
+	PublicIp       string   `json:"public_ip,omitempty"`
+	Dhcp           bool     `json:"dhcp,omitempty"`
+	IpAddress      string   `json:"ipaddr,omitempty"`
+	GatewayIp      string   `json:"gateway_ip,omitempty"`
+	SecondaryCIDRs []string `json:"secondary_private_cidr_list,omitempty"`
+}
+
 type TransitGatewayBgpLanIpInfoResp struct {
 	Return  bool                                 `json:"return"`
 	Results TransitGatewayBgpLanIpInfoRespResult `json:"results"`
@@ -151,7 +168,6 @@ func (c *Client) LaunchTransitVpc(gateway *TransitVpc) error {
 	gateway.CID = c.CID
 	gateway.Action = "create_multicloud_primary_gateway"
 	gateway.Async = true
-
 	return c.PostAsyncAPI(gateway.Action, gateway, BasicCheck)
 }
 
@@ -341,13 +357,28 @@ func (c *Client) UpdateTransitPendingApprovedCidrs(gateway *TransitVpc) error {
 	return c.PostAPI(form["action"], form, BasicCheck)
 }
 
-func (c *Client) SetBgpPollingTime(transitGateway *TransitVpc, newPollingTime string) error {
+func (c *Client) SetBgpPollingTime(transitGateway *TransitVpc, newPollingTime int) error {
 	action := "change_bgp_polling_time"
 	return c.PostAPI(action, struct {
 		CID         string `form:"CID"`
 		Action      string `form:"action"`
 		GatewayName string `form:"gateway_name"`
-		PollingTime string `form:"bgp_polling_time"`
+		PollingTime int    `form:"bgp_polling_time"`
+	}{
+		CID:         c.CID,
+		Action:      action,
+		GatewayName: transitGateway.GwName,
+		PollingTime: newPollingTime,
+	}, BasicCheck)
+}
+
+func (c *Client) SetBgpBfdPollingTime(transitGateway *TransitVpc, newPollingTime int) error {
+	action := "change_bgp_neighbor_status_polling_time"
+	return c.PostAPI(action, struct {
+		CID         string `form:"CID"`
+		Action      string `form:"action"`
+		GatewayName string `form:"gateway_name"`
+		PollingTime int    `form:"bgp_neighbor_status_polling_time"`
 	}{
 		CID:         c.CID,
 		Action:      action,
@@ -449,7 +480,8 @@ func (c *Client) GetTransitGatewayAdvancedConfig(transitGateway *TransitVpc) (*T
 	}
 
 	return &TransitGatewayAdvancedConfig{
-		BgpPollingTime:                    strconv.Itoa(data.Results.BgpPollingTime),
+		BgpPollingTime:                    data.Results.BgpPollingTime,
+		BgpBfdPollingTime:                 data.Results.BgpBfdPollingTime,
 		PrependASPath:                     filteredStrings,
 		LocalASNumber:                     data.Results.LocalASNumber,
 		BgpEcmpEnabled:                    data.Results.BgpEcmpEnabled == "yes",

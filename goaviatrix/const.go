@@ -14,11 +14,9 @@ const (
 	AWSChina    = 1024
 	AzureChina  = 2048
 	AliCloud    = 8192
-	AWSTS       = 16384 // AWS Top Secret Region (C2S)
-	AWSS        = 32768 // AWS Secret Region (SC2S)
-	EDGECSP     = 65536
-	EDGEEQUINIX = 524288
-	EDGENEO     = 262144
+	EDGECSP     = 65536  // Zededa
+	EDGEEQUINIX = 524288 // Equinix
+	EDGENEO     = 262144 // AEP
 )
 
 // Cloud vendor names
@@ -29,11 +27,12 @@ var (
 )
 
 const (
-	AWSRelatedCloudTypes      = AWS | AWSGov | AWSChina | AWSTS | AWSS
+	AWSRelatedCloudTypes      = AWS | AWSGov | AWSChina
 	GCPRelatedCloudTypes      = GCP
 	AzureArmRelatedCloudTypes = Azure | AzureGov | AzureChina
 	OCIRelatedCloudTypes      = OCI
 	AliCloudRelatedCloudTypes = AliCloud
+	EdgeRelatedCloudTypes     = EDGEEQUINIX | EDGENEO
 )
 
 // GetSupportedClouds returns the list of currently supported cloud IDs
@@ -56,8 +55,6 @@ func GetSupportedClouds() []int {
 		AzureChina,
 		AWSChina,
 		AliCloud,
-		AWSTS,
-		AWSS,
 		EDGECSP,
 		EDGEEQUINIX,
 		EDGENEO,
