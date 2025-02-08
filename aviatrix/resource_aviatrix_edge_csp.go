@@ -162,6 +162,9 @@ func resourceAviatrixEdgeCSP() *schema.Resource {
 				Default:      defaultBgpNeighborStatusPollingTime,
 				ValidateFunc: validation.IntBetween(1, 10),
 				Description:  "BGP neighbor status polling time for BGP Spoke Gateway. Unit is in seconds. Valid values are between 1 and 10.",
+				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+					return old == "0"
+				},
 			},
 			"bgp_hold_time": {
 				Type:         schema.TypeInt,
@@ -360,6 +363,7 @@ func resourceAviatrixEdgeCSP() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "DNS profile to be associated with gateway, select an existing template.",
+				Deprecated:  "DNS profile support has been removed.",
 			},
 			"enable_single_ip_snat": {
 				Type:        schema.TypeBool,
@@ -410,7 +414,6 @@ func marshalEdgeCSPInput(d *schema.ResourceData) *goaviatrix.EdgeCSP {
 		WanInterface:                       strings.Join(getStringList(d, "wan_interface_names"), ","),
 		LanInterface:                       strings.Join(getStringList(d, "lan_interface_names"), ","),
 		MgmtInterface:                      strings.Join(getStringList(d, "management_interface_names"), ","),
-		DnsProfileName:                     d.Get("dns_profile_name").(string),
 		EnableSingleIpSnat:                 d.Get("enable_single_ip_snat").(bool),
 	}
 
@@ -776,7 +779,6 @@ func resourceAviatrixEdgeCSPRead(ctx context.Context, d *schema.ResourceData, me
 		return diag.Errorf("failed to set vlan: %s\n", err)
 	}
 
-	d.Set("dns_profile_name", edgeCSPResp.DnsProfileName)
 	d.Set("enable_single_ip_snat", edgeCSPResp.EnableNat == "yes" && edgeCSPResp.SnatMode == "primary")
 	d.Set("enable_auto_advertise_lan_cidrs", edgeCSPResp.EnableAutoAdvertiseLanCidrs)
 
@@ -965,7 +967,7 @@ func resourceAviatrixEdgeCSPUpdate(ctx context.Context, d *schema.ResourceData, 
 		}
 	}
 
-	if d.HasChanges("management_egress_ip_prefix_list", "interfaces", "vlan", "dns_profile_name",
+	if d.HasChanges("management_egress_ip_prefix_list", "interfaces", "vlan",
 		"enable_auto_advertise_lan_cidrs", "enable_edge_active_standby", "enable_edge_active_standby_preemptive") {
 		err := client.UpdateEdgeCSP(ctx, edgeCSP)
 		if err != nil {

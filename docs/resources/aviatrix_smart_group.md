@@ -37,14 +37,41 @@ resource "aviatrix_smart_group" "test_smart_group_ip" {
     match_expressions {
       site = "site-test-0"
     }
-    
+
+    match_expressions {
+      s2c = "remote-site-name"
+    }
+
+    # Below are Kubernetes type examples
+
+    # Match all pods and services in a cluster
+    match_expressions {
+      type           = "k8s"
+      k8s_cluster_id = resource.aviatrix_kubernetes_cluster.test_cluster.cluster_id
+    }
+
+    # Match all pods and services in a namespace across all clusters
+    match_expressions {
+      type           = "k8s"
+      k8s_namespace  = "testnamespace"
+    }
+
+    # Match all pods and services in a cluster and namespace
+    match_expressions {
+      type           = "k8s"
+      k8s_cluster_id = resource.aviatrix_kubernetes_cluster.test_cluster.cluster_id
+      k8s_namespace  = "testnamespace"
+    }
+
+    # Match a service by name in a namespace of a cluster
     match_expressions {
       type           = "k8s"
       k8s_cluster_id = resource.aviatrix_kubernetes_cluster.test_cluster.cluster_id
       k8s_namespace  = "testnamespace"
       k8s_service    = "testservice"
     }
-    
+
+    # Match a pod by name in a namespace of a cluster
     match_expressions {
       type           = "k8s"
       k8s_cluster_id = resource.aviatrix_kubernetes_cluster.test_cluster.cluster_id
@@ -52,17 +79,52 @@ resource "aviatrix_smart_group" "test_smart_group_ip" {
       k8s_pod        = "testpod"
     }
 
+    // Below are external group type examples
+
+    // generic format
     match_expressions {
-      s2c = "remote-site-name"
+      external = "External_group_ID"
+      ext_args = {
+        external_group_ID_specific_field_1 = "value1"
+        external_group_ID_specific_field_2 = "value2"
+      }
     }
 
     match_expressions {
-      external = "External_ID"
+      external = "geo"
       ext_args = {
-        external_ID_specific_field1 = "value1"
-        external_ID_specific_field2 = "value2"
-      } 
+        country_iso_code = "US"
+        is_in_eu = "1"
+        continent_code = "NA"
+      }
     }
+
+    match_expressions {
+      external = "threatiq"
+      ext_args = {
+        protocol = "tcp"
+        type = "ciarmy"
+        severity = "major"
+      }
+    }
+
+    match_expressions {
+      external = "azureips"
+      ext_args = {
+        service_name = "AzureCloud"
+        region = "eastus"
+      }
+    }
+
+    match_expressions {
+      external = "githubips"
+      ext_args = {
+        service_name = "web"
+      }
+    }
+
+    // End of external group type examples
+
   }
 }
 ```
@@ -87,14 +149,14 @@ The following arguments are supported:
     * `region` - (Optional) - Region this expression matches.
     * `zone` - (Optional) - Zone this expression matches.
     * `k8s_cluster_id` - (Optional) - Resource ID of the Kubernetes cluster this expression matches. The resource ID can be found in the `cluster_id` attribute of the `aviatrix_kubernetes_cluster` resource.
-      This property can only be used when `type` is set to "k8s".
+      This property can only be used when `type` is set to `"k8s"`.
     * `k8s_namespace` - (Optional) - Kubernetes namespace this expression matches.
-      This property can only be used when `type` is set to "k8s".
+      This property can only be used when `type` is set to `"k8s"`.
     * `k8s_service` - (Optional) - Kubernetes service name this expression matches.
-      This property can only be used when `type` is set to "k8s".
+      This property can only be used when `type` is set to `"k8s"`.
       This property must not be used when `k8s_pod` is set.
-    * `k8s_pod` - (Optional) - Kubernetes pod name this expression matches. 
-      This property can only be used when `type` is set to "k8s".
+    * `k8s_pod` - (Optional) - Kubernetes pod name this expression matches.
+      This property can only be used when `type` is set to `"k8s"` and `k8s_cluster_id` and `k8s_namespace` are also set.
       This property must not be used when `k8s_service` is set.
     * `s2c` - (Optional) - Name of the remote site. Represents the CIDRs associated with the remote site.
     * `external` - (Optional) - Specifies an external feed, currently either "geo" or "threatiq".

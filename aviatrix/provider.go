@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-var supportedVersions = []string{"7.2"}
+var supportedVersions = []string{"8.0"}
 
 // Provider returns a schema.Provider for Aviatrix.
 func Provider() *schema.Provider {
@@ -112,11 +112,12 @@ func Provider() *schema.Provider {
 			"aviatrix_distributed_firewalling_origin_cert_enforcement_config": resourceAviatrixDistributedFirewallingOriginCertEnforcementConfig(),
 			"aviatrix_distributed_firewalling_policy_list":                    resourceAviatrixDistributedFirewallingPolicyList(),
 			"aviatrix_distributed_firewalling_proxy_ca_config":                resourceAviatrixDistributedFirewallingProxyCaConfig(),
-			"aviatrix_dns_profile":                                            resourceAviatrixDNSProfile(),
 			"aviatrix_edge_csp":                                               resourceAviatrixEdgeCSP(),
 			"aviatrix_edge_csp_ha":                                            resourceAviatrixEdgeCSPHa(),
 			"aviatrix_edge_equinix":                                           resourceAviatrixEdgeEquinix(),
 			"aviatrix_edge_equinix_ha":                                        resourceAviatrixEdgeEquinixHa(),
+			"aviatrix_edge_megaport":                                          resourceAviatrixEdgeMegaport(),
+			"aviatrix_edge_megaport_ha":                                       resourceAviatrixEdgeMegaportHa(),
 			"aviatrix_edge_gateway_selfmanaged":                               resourceAviatrixEdgeGatewaySelfmanaged(),
 			"aviatrix_edge_gateway_selfmanaged_ha":                            resourceAviatrixEdgeGatewaySelfmanagedHa(),
 			"aviatrix_edge_neo":                                               resourceAviatrixEdgeNEO(),

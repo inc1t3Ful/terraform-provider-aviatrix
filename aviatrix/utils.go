@@ -45,7 +45,8 @@ func DiffSuppressFuncString(k, old, new string, d *schema.ResourceData) bool {
 }
 
 func captureErr(fn func(*schema.ResourceData, interface{}) error,
-	d *schema.ResourceData, meta interface{}, err *error) {
+	d *schema.ResourceData, meta interface{}, err *error,
+) {
 	*err = fn(d, meta)
 }
 
@@ -117,7 +118,7 @@ func stringInSlice(needle string, haystack []string) bool {
 
 var (
 	awsTagMatcher   = regexp.MustCompile(``) // AWS tags allow all characters
-	azureTagMatcher = regexp.MustCompile(`^[a-zA-Z0-9+\-=._ :@# ]*$`)
+	azureTagMatcher = regexp.MustCompile(``) // Azure tags allow all characters
 	gcpTagMatcher   = regexp.MustCompile(`^[\p{Ll}\p{Lo}\p{N}_-]*$`)
 )
 
@@ -379,8 +380,8 @@ func createOrderMap(order []string) map[string]int {
 func sortInterfacesByCustomOrder(interfaces []goaviatrix.EdgeTransitInterface) []goaviatrix.EdgeTransitInterface {
 	orderMap := createOrderMap(interfaceOrder)
 	sort.SliceStable(interfaces, func(i, j int) bool {
-		iIndex, iExists := orderMap[interfaces[i].Name]
-		jIndex, jExists := orderMap[interfaces[j].Name]
+		iIndex, iExists := orderMap[interfaces[i].LogicalIfName]
+		jIndex, jExists := orderMap[interfaces[j].LogicalIfName]
 		if !iExists {
 			iIndex = len(orderMap)
 		}
@@ -407,4 +408,12 @@ func sortInterfaceMappingByCustomOrder(interfaceMapping []goaviatrix.InterfaceMa
 		return iIndex < jIndex
 	})
 	return interfaceMapping
+}
+
+// Sorting interfaces by type and index
+func sortInterfacesByTypeIndex(interfaces []goaviatrix.MegaportInterface) []goaviatrix.MegaportInterface {
+	sort.SliceStable(interfaces, func(i, j int) bool {
+		return interfaces[i].LogicalInterfaceName < interfaces[j].LogicalInterfaceName
+	})
+	return interfaces
 }

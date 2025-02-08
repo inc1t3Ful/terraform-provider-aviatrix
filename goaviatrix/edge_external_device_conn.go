@@ -26,7 +26,7 @@ type EdgeExternalDeviceConn struct {
 	Phase2Encryption       string `json:"phase2_encryption,omitempty"`
 	HAEnabled              string `json:"enable_ha,omitempty"`
 	BackupRemoteGatewayIP  string `json:"backup_external_device_ip_address,omitempty"`
-	BackupBgpRemoteAsNum   int    `json:"backup_external_device_as_number,omitempty"`
+	BackupBgpRemoteAsNum   int    `json:"external_device_backup_asn,omitempty"`
 	BackupPreSharedKey     string `json:"backup_pre_shared_key,omitempty"`
 	BackupLocalTunnelCidr  string `json:"backup_local_tunnel_ip,omitempty"`
 	BackupRemoteTunnelCidr string `json:"backup_remote_tunnel_ip,omitempty"`
@@ -46,14 +46,14 @@ type EdgeExternalDeviceConn struct {
 	Phase1LocalIdentifier  string
 	Phase1RemoteIdentifier string
 	PrependAsPath          string
-	BgpMd5Key              string          `json:"bgp_md5_key,omitempty"`
-	BackupBgpMd5Key        string          `json:"backup_bgp_md5_key,omitempty"`
-	AuthType               string          `json:"auth_type,omitempty"`
-	EnableEdgeUnderlay     bool            `json:"edge_underlay,omitempty"`
-	RemoteCloudType        string          `json:"remote_cloud_type,omitempty"`
-	BgpMd5KeyChanged       bool            `json:"bgp_md5_key_changed,omitempty"`
-	BgpBfdConfig           []*BgpBfdConfig `json:"bgp_bfd,omitempty"`
-	EnableBfd              bool            `json:"enable_bfd,omitempty"`
+	BgpMd5Key              string       `json:"bgp_md5_key,omitempty"`
+	BackupBgpMd5Key        string       `json:"backup_bgp_md5_key,omitempty"`
+	AuthType               string       `json:"auth_type,omitempty"`
+	EnableEdgeUnderlay     bool         `json:"edge_underlay,omitempty"`
+	RemoteCloudType        string       `json:"remote_cloud_type,omitempty"`
+	BgpMd5KeyChanged       bool         `json:"bgp_md5_key_changed,omitempty"`
+	BgpBfdConfig           BgpBfdConfig `json:"bgp_bfd_params,omitempty"`
+	EnableBfd              bool         `json:"bgp_bfd_enabled,omitempty"`
 }
 
 func (c *Client) CreateEdgeExternalDeviceConn(edgeExternalDeviceConn *EdgeExternalDeviceConn) (string, error) {
